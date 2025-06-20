@@ -9,12 +9,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"sort"
+	"southwinds.dev/volta/internal/debug"
 	"strings"
 	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+)
+
+const (
+	ctxTimeout = 10 * time.Second
 )
 
 // S3Store implements the Store interface using MinIO as the backend with multitenancy.
@@ -58,14 +64,6 @@ type S3Store struct {
 	// tenantID uniquely identifies the tenant whose data is being stored. This is used to correctly
 	// route requests and ensure data isolation between different tenants.
 	tenantID string
-
-	// ctx is the context that is used for cancellation and timeout control for operations
-	// related to this S3Store instance.
-	ctx context.Context
-
-	// ctxCancel is the cancel function associated with the context. This can be called
-	// to cancel any ongoing operations tied to the context.
-	ctxCancel context.CancelFunc
 }
 
 // NewS3Store initializes a new S3Store instance using the provided S3 configuration
@@ -109,31 +107,25 @@ func NewS3Store(config S3Config, tenantID string) (*S3Store, error) {
 		return nil, fmt.Errorf("failed to create MinIO client: %w", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-
 	store := &S3Store{
 		client:    client,
 		bucket:    config.Bucket,
 		keyPrefix: config.KeyPrefix,
 		tenantID:  tenantID,
-		ctx:       ctx,
-		ctxCancel: cancel,
 	}
 
-	// Ensure bucket exists
-	if err = store.ensureBucket(); err != nil {
-		cancel()
-		return nil, fmt.Errorf("failed to ensure bucket exists: %w", err)
-	}
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
 
-	// Ensure bucket exists
-	if err = store.ensureBucket(); err != nil {
+	// Ensure bucket exists (REMOVE THE DUPLICATE)
+	if err = store.ensureBucket(ctx); err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to ensure bucket exists: %w", err)
 	}
 
 	// Initialize vault config (similar to FileSystemStore)
-	if err = store.initializeVaultConfig(); err != nil {
+	if err = store.initializeVaultConfig(ctx); err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to initialize vault config: %w", err)
 	}
@@ -180,11 +172,16 @@ type S3Config struct {
 	Region          string // The region of the S3 bucket.
 }
 
-func (s3s *S3Store) initializeVaultConfig() error {
+func (s3s *S3Store) initializeVaultConfig(ctx context.Context) error {
 	objectName := s3s.buildTenantPath("vault.config")
 
+	// Add debugging to see what object name is generated
+	debug.Print("Generated object name: '%s'\n", objectName)
+	debug.Print("Tenant ID: '%s'\n", s3s.tenantID)
+	debug.Print("Key prefix: '%s'\n", s3s.keyPrefix)
+
 	// Check if config already exists
-	_, err := s3s.client.StatObject(s3s.ctx, s3s.bucket, objectName, minio.StatObjectOptions{})
+	_, err := s3s.client.StatObject(ctx, s3s.bucket, objectName, minio.StatObjectOptions{})
 	if err != nil {
 		// Check if it's a not found error
 		if minioErr := minio.ToErrorResponse(err); minioErr.Code == "NoSuchKey" {
@@ -203,7 +200,7 @@ func (s3s *S3Store) initializeVaultConfig() error {
 			}
 
 			_, err = s3s.client.PutObject(
-				s3s.ctx,
+				ctx,
 				s3s.bucket,
 				objectName,
 				bytes.NewReader(data),
@@ -233,16 +230,22 @@ func (s3s *S3Store) initializeVaultConfig() error {
 
 // ListTenants returns all tenant IDs that have vaults in the bucket
 func (s3s *S3Store) ListTenants() ([]string, error) {
-	// Build base prefix for listing
-	var basePrefix string
-	if s3s.keyPrefix != "" {
-		basePrefix = s3s.keyPrefix + "/"
+	// Build base prefix for listing - fix the logic here
+	basePrefix := s3s.keyPrefix
+	if basePrefix != "" && !strings.HasSuffix(basePrefix, "/") {
+		basePrefix = basePrefix + "/"
 	}
 
+	debug.Print("ListTenants: basePrefix: '%s'\n", basePrefix)
+
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
 	// List all objects to find tenant directories
-	objectCh := s3s.client.ListObjects(s3s.ctx, s3s.bucket, minio.ListObjectsOptions{
+	objectCh := s3s.client.ListObjects(ctx, s3s.bucket, minio.ListObjectsOptions{
 		Prefix:    basePrefix,
-		Recursive: false,
+		Recursive: true, // Change to true to get actual files, not just directories
 	})
 
 	tenantSet := make(map[string]bool)
@@ -251,10 +254,23 @@ func (s3s *S3Store) ListTenants() ([]string, error) {
 			return nil, fmt.Errorf("failed to list objects: %w", object.Err)
 		}
 
+		debug.Print("ListTenants: found object: '%s'\n", object.Key)
+
+		// Skip directory entries (objects ending with '/')
+		if strings.HasSuffix(object.Key, "/") {
+			debug.Print("ListTenants: Skipping directory entry: '%s'\n", object.Key)
+			continue
+		}
+
 		// Extract tenant ID from object path
 		relativePath := strings.TrimPrefix(object.Key, basePrefix)
+		debug.Print("ListTenants: Relative path: '%s'\n", relativePath)
+
 		parts := strings.Split(relativePath, "/")
+		debug.Print("ListTenants: Parts: %v\n", parts)
+
 		if len(parts) > 0 && parts[0] != "" {
+			debug.Print("ListTenants: Adding tenant: '%s'\n", parts[0])
 			tenantSet[parts[0]] = true
 		}
 	}
@@ -266,6 +282,7 @@ func (s3s *S3Store) ListTenants() ([]string, error) {
 	}
 	sort.Strings(tenants)
 
+	debug.Print("ListTenants: Final tenants list: %v\n", tenants)
 	return tenants, nil
 }
 
@@ -275,16 +292,15 @@ func (s3s *S3Store) DeleteTenant(tenantID string) error {
 		return fmt.Errorf("invalid tenant ID: %w", err)
 	}
 
-	// Safety check - don't delete if it's the current tenant
-	if tenantID == s3s.tenantID {
-		return fmt.Errorf("cannot delete current tenant")
-	}
-
 	// Build tenant prefix
-	tenantPrefix := s3s.buildTenantPath("", tenantID) + "/"
+	tenantPrefix := s3s.buildTenantPathForTenant(tenantID) + "/"
+
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
 
 	// List all objects for this tenant
-	objectCh := s3s.client.ListObjects(s3s.ctx, s3s.bucket, minio.ListObjectsOptions{
+	objectCh := s3s.client.ListObjects(ctx, s3s.bucket, minio.ListObjectsOptions{
 		Prefix:    tenantPrefix,
 		Recursive: true,
 	})
@@ -298,73 +314,108 @@ func (s3s *S3Store) DeleteTenant(tenantID string) error {
 		objectNames = append(objectNames, object.Key)
 	}
 
+	// Check if tenant exists (has any objects)
+	if len(objectNames) == 0 {
+		return fmt.Errorf("tenant %s not found or has no data", tenantID)
+	}
+
 	// Delete objects in batches
 	for _, objectName := range objectNames {
-		err := s3s.client.RemoveObject(s3s.ctx, s3s.bucket, objectName, minio.RemoveObjectOptions{})
+		err := s3s.client.RemoveObject(ctx, s3s.bucket, objectName, minio.RemoveObjectOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to delete object %s: %w", objectName, err)
+			// Don't fail if object was already deleted
+			if minioErr := minio.ToErrorResponse(err); minioErr.Code != "NoSuchKey" {
+				return fmt.Errorf("failed to delete object %s: %w", objectName, err)
+			}
 		}
 	}
 
 	return nil
 }
 
-func (s3s *S3Store) SaveMetadata(encryptedMetadata []byte) error {
-	objectName := s3s.buildTenantPath("vault.meta")
-
-	_, err := s3s.client.PutObject(
-		s3s.ctx,
-		s3s.bucket,
-		objectName,
-		bytes.NewReader(encryptedMetadata),
-		int64(len(encryptedMetadata)),
-		minio.PutObjectOptions{
-			ContentType: "application/octet-stream",
-			UserMetadata: map[string]string{
-				"vault-metadata": "true",
-				"data-type":      "vault-metadata",
-				"tenant-id":      s3s.tenantID,
-				"updated-at":     time.Now().UTC().Format(time.RFC3339),
-			},
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to save vault metadata: %w", err)
+func (s3s *S3Store) SaveMetadata(data []byte) error {
+	// Validate input - treat nil as an error
+	if data == nil {
+		return fmt.Errorf("metadata data cannot be nil")
 	}
 
+	objectName := s3s.buildTenantPath("metadata.json")
+	debug.Print("SaveMetadata: Saving to object: %s\n", objectName)
+
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
+	reader := bytes.NewReader(data)
+	_, err := s3s.client.PutObject(ctx, s3s.bucket, objectName, reader, int64(len(data)), minio.PutObjectOptions{
+		ContentType: "application/json",
+	})
+
+	if err != nil {
+		debug.Print("SaveMetadata: PutObject error: %v\n", err)
+		return fmt.Errorf("failed to save metadata: %w", err)
+	}
+
+	debug.Print("SaveMetadata: Successfully saved %d bytes to %s\n", len(data), objectName)
 	return nil
 }
 
 func (s3s *S3Store) LoadMetadata() ([]byte, error) {
-	objectName := s3s.buildTenantPath("vault.meta")
+	objectName := s3s.buildTenantPath("metadata.json")
+	debug.Print("LoadMetadata: Looking for object: %s\n", objectName)
 
-	object, err := s3s.client.GetObject(s3s.ctx, s3s.bucket, objectName, minio.GetObjectOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
+	// First check if object exists
+	_, err := s3s.client.StatObject(ctx, s3s.bucket, objectName, minio.StatObjectOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get vault metadata: %w", err)
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			return nil, fmt.Errorf("metadata not found for tenant %s", s3s.tenantID)
+		}
+		return nil, fmt.Errorf("failed to check metadata existence: %w", err)
 	}
-	defer object.Close()
+
+	// Object exists, now get it
+	object, err := s3s.client.GetObject(ctx, s3s.bucket, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		debug.Print("LoadMetadata: GetObject error: %v\n", err)
+		return nil, fmt.Errorf("failed to get metadata object: %w", err)
+	}
+	defer func(object *minio.Object) {
+		if err = object.Close(); err != nil {
+			log.Printf("WARNING: cannot close minio object: %v\n", err)
+		}
+	}(object)
 
 	data, err := io.ReadAll(object)
 	if err != nil {
-		// Check if it's a NoSuchKey error for better error message
-		if minioErr := minio.ToErrorResponse(err); minioErr.Code == "NoSuchKey" {
-			return nil, fmt.Errorf("vault metadata not found for tenant %s", s3s.tenantID)
-		}
-		return nil, fmt.Errorf("failed to read vault metadata: %w", err)
+		debug.Print(" LoadMetadata: ReadAll error: %v\n", err)
+		return nil, fmt.Errorf("failed to read metadata: %w", err)
 	}
 
+	// Return empty slice for empty data (this is valid)
+	if len(data) == 0 {
+		debug.Print(" LoadMetadata: Data is empty\n")
+		return []byte{}, nil
+	}
+
+	debug.Print(" LoadMetadata: Successfully loaded %d bytes from %s\n", len(data), objectName)
 	return data, nil
 }
 
 func (s3s *S3Store) MetadataExists() (bool, error) {
-	objectName := s3s.buildTenantPath("vault.meta")
+	objectName := s3s.buildTenantPath("metadata.json")
 
-	_, err := s3s.client.StatObject(s3s.ctx, s3s.bucket, objectName, minio.StatObjectOptions{})
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
+	_, err := s3s.client.StatObject(ctx, s3s.bucket, objectName, minio.StatObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			return false, nil
 		}
-		return false, fmt.Errorf("failed to check vault metadata existence: %w", err)
+		return false, fmt.Errorf("failed to check metadata existence: %w", err)
 	}
 
 	return true, nil
@@ -374,8 +425,12 @@ func (s3s *S3Store) MetadataExists() (bool, error) {
 func (s3s *S3Store) SaveSalt(saltData []byte) error {
 	objectName := s3s.buildTenantPath("vault.salt")
 
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
 	_, err := s3s.client.PutObject(
-		s3s.ctx,
+		ctx,
 		s3s.bucket,
 		objectName,
 		bytes.NewReader(saltData),
@@ -400,19 +455,32 @@ func (s3s *S3Store) SaveSalt(saltData []byte) error {
 func (s3s *S3Store) LoadSalt() ([]byte, error) {
 	objectName := s3s.buildTenantPath("vault.salt")
 
-	object, err := s3s.client.GetObject(s3s.ctx, s3s.bucket, objectName, minio.GetObjectOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get salt: %w", err)
-	}
-	defer object.Close()
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
 
+	object, err := s3s.client.GetObject(ctx, s3s.bucket, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get salt object: %w", err)
+	}
+	defer func(object *minio.Object) {
+		if err = object.Close(); err != nil {
+			log.Printf("WARNING: cannot close minio object: %v\n", err)
+		}
+	}(object)
+
+	// Try to read the object to check if it actually exists
 	data, err := io.ReadAll(object)
 	if err != nil {
-		// Check if it's a NoSuchKey error
+		// Check if it's a "not found" error
 		if minioErr := minio.ToErrorResponse(err); minioErr.Code == "NoSuchKey" {
-			return nil, fmt.Errorf("derivation salt not found for tenant %s", s3s.tenantID)
+			return nil, fmt.Errorf("salt not found for tenant %s", s3s.tenantID)
 		}
 		return nil, fmt.Errorf("failed to read salt: %w", err)
+	}
+
+	if len(data) == 0 {
+		return nil, fmt.Errorf("salt file is empty for tenant %s", s3s.tenantID)
 	}
 
 	return data, nil
@@ -421,7 +489,11 @@ func (s3s *S3Store) LoadSalt() ([]byte, error) {
 func (s3s *S3Store) SaltExists() (bool, error) {
 	objectName := s3s.buildTenantPath("vault.salt")
 
-	_, err := s3s.client.StatObject(s3s.ctx, s3s.bucket, objectName, minio.StatObjectOptions{})
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
+	_, err := s3s.client.StatObject(ctx, s3s.bucket, objectName, minio.StatObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			return false, nil
@@ -436,8 +508,12 @@ func (s3s *S3Store) SaltExists() (bool, error) {
 func (s3s *S3Store) SaveSecretsData(encryptedSecretsData []byte) error {
 	objectName := s3s.buildTenantPath("secrets.meta")
 
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
 	_, err := s3s.client.PutObject(
-		s3s.ctx,
+		ctx,
 		s3s.bucket,
 		objectName,
 		bytes.NewReader(encryptedSecretsData),
@@ -462,19 +538,32 @@ func (s3s *S3Store) SaveSecretsData(encryptedSecretsData []byte) error {
 func (s3s *S3Store) LoadSecretsData() ([]byte, error) {
 	objectName := s3s.buildTenantPath("secrets.meta")
 
-	object, err := s3s.client.GetObject(s3s.ctx, s3s.bucket, objectName, minio.GetObjectOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("failed to get secrets data: %w", err)
-	}
-	defer object.Close()
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
 
+	object, err := s3s.client.GetObject(ctx, s3s.bucket, objectName, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get secrets object: %w", err)
+	}
+	defer func(object *minio.Object) {
+		if err = object.Close(); err != nil {
+			log.Printf("WARNING: cannot close minio object: %v\n", err)
+		}
+	}(object)
+
+	// Try to read the object to check if it actually exists
 	data, err := io.ReadAll(object)
 	if err != nil {
-		// Check if it's a NoSuchKey error
+		// Check if it's a "not found" error
 		if minioErr := minio.ToErrorResponse(err); minioErr.Code == "NoSuchKey" {
 			return nil, fmt.Errorf("secrets data not found for tenant %s", s3s.tenantID)
 		}
 		return nil, fmt.Errorf("failed to read secrets data: %w", err)
+	}
+
+	if len(data) == 0 {
+		return nil, fmt.Errorf("secrets data file is empty for tenant %s", s3s.tenantID)
 	}
 
 	return data, nil
@@ -483,7 +572,11 @@ func (s3s *S3Store) LoadSecretsData() ([]byte, error) {
 func (s3s *S3Store) SecretsDataExists() (bool, error) {
 	objectName := s3s.buildTenantPath("secrets.meta")
 
-	_, err := s3s.client.StatObject(s3s.ctx, s3s.bucket, objectName, minio.StatObjectOptions{})
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
+	_, err := s3s.client.StatObject(ctx, s3s.bucket, objectName, minio.StatObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			return false, nil
@@ -496,49 +589,49 @@ func (s3s *S3Store) SecretsDataExists() (bool, error) {
 
 // Backup operations
 func (s3s *S3Store) SaveBackup(backupPath string, container *BackupContainer) error {
-	// Validate backup path
-	if backupPath == "" {
-		return fmt.Errorf("backup path cannot be empty")
-	}
-
-	// Add tenant ID to backup container metadata if not already set
-	if container.TenantID == "" {
-		container.TenantID = s3s.tenantID
-	}
-
-	// Marshal container to JSON
-	containerData, err := json.MarshalIndent(container, "", "  ")
+	// Serialize the backup container
+	data, err := json.Marshal(container)
 	if err != nil {
 		return fmt.Errorf("failed to marshal backup container: %w", err)
 	}
 
-	// Build S3 object name
-	objectName := s3s.buildTenantPath("backups", backupPath+".vault")
+	// Build the object path
+	objectPath := s3s.buildTenantPath("backups") + "/" + backupPath + ".vault"
 
-	// Store backup container as single object
-	_, err = s3s.client.PutObject(
-		s3s.ctx,
-		s3s.bucket,
-		objectName,
-		bytes.NewReader(containerData),
-		int64(len(containerData)),
-		minio.PutObjectOptions{
-			ContentType: "application/json",
-			UserMetadata: map[string]string{
-				"vault-backup":      "true",
-				"backup-id":         container.BackupID,
-				"backup-version":    container.BackupVersion,
-				"vault-version":     container.VaultVersion,
-				"tenant-id":         container.TenantID,
-				"backup-timestamp":  container.BackupTimestamp.Format(time.RFC3339),
-				"encryption-method": container.EncryptionMethod,
-				"checksum":          container.Checksum,
-			},
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to save backup container: %w", err)
+	// Use consistent lowercase-hyphen keys for maximum portability across S3 backends
+	metadata := map[string]string{
+		"backup-id":         container.BackupID,
+		"backup-version":    container.BackupVersion,
+		"vault-version":     container.VaultVersion,
+		"encryption-method": container.EncryptionMethod,
+		"checksum":          container.Checksum,
+		"tenant-id":         container.TenantID,
+		"backup-timestamp":  container.BackupTimestamp.Format(time.RFC3339),
 	}
+
+	debug.Print("ListBackups:  SaveBackup: Saving to path: %s\n", objectPath)
+	debug.Print("ListBackups:  SaveBackup: Metadata to save:\n")
+	for key, value := range metadata {
+		debug.Print("ListBackups:  SaveBackup:   %s = %s\n", key, value)
+	}
+
+	// Create reader from serialized data
+	reader := bytes.NewReader(data)
+
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
+	// Save to S3 with metadata
+	putInfo, err := s3s.client.PutObject(ctx, s3s.bucket, objectPath, reader, int64(len(data)), minio.PutObjectOptions{
+		ContentType:  "application/json",
+		UserMetadata: metadata,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to save backup to S3: %w", err)
+	}
+
+	debug.Print("ListBackups:  SaveBackup: Successfully saved backup, size: %d\n", putInfo.Size)
 
 	return nil
 }
@@ -552,8 +645,12 @@ func (s3s *S3Store) RestoreBackup(backupPath string) (*BackupContainer, error) {
 	// Build object name
 	objectName := s3s.buildTenantPath("backups", backupPath+".vault")
 
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
 	// Get the backup object
-	object, err := s3s.client.GetObject(s3s.ctx, s3s.bucket, objectName, minio.GetObjectOptions{})
+	object, err := s3s.client.GetObject(ctx, s3s.bucket, objectName, minio.GetObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
 			return nil, fmt.Errorf("backup '%s' not found for tenant %s", backupPath, s3s.tenantID)
@@ -597,110 +694,135 @@ func (s3s *S3Store) RestoreBackup(backupPath string) (*BackupContainer, error) {
 }
 
 func (s3s *S3Store) DeleteBackup(backupID string) error {
-	// For S3 implementation, we need to find the backup by ID
-	// This requires listing backups and finding the one with matching ID
+	debug.Print(" DeleteBackup: Looking for backup with ID: %s\n", backupID)
+
+	// List backups to find the one with matching ID
 	backups, err := s3s.ListBackups()
 	if err != nil {
 		return fmt.Errorf("failed to list backups for deletion: %w", err)
 	}
 
-	var backupPath string
+	var storePath string
 	for _, backup := range backups {
 		if backup.BackupID == backupID {
-			// Extract path from backup (this assumes we can derive path from backup info)
-			// For simplicity, we'll use the backup ID as the path
-			backupPath = backupID
+			storePath = backup.StorePath
 			break
 		}
 	}
 
-	if backupPath == "" {
+	if storePath == "" {
 		return fmt.Errorf("backup %s not found for tenant %s", backupID, s3s.tenantID)
 	}
 
-	// Build object name
-	objectName := s3s.buildTenantPath("backups", backupPath+".vault")
+	debug.Print(" DeleteBackup: Deleting backup at store path: %s\n", storePath)
 
-	// Delete the backup object
-	err = s3s.client.RemoveObject(s3s.ctx, s3s.bucket, objectName, minio.RemoveObjectOptions{})
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
+	// Delete the backup object using the store path as S3 object key
+	err = s3s.client.RemoveObject(ctx, s3s.bucket, storePath, minio.RemoveObjectOptions{})
 	if err != nil {
 		if minio.ToErrorResponse(err).Code != "NoSuchKey" {
 			return fmt.Errorf("failed to delete backup '%s': %w", backupID, err)
 		}
 	}
 
+	debug.Print(" DeleteBackup: Successfully deleted backup: %s\n", backupID)
 	return nil
 }
 
 func (s3s *S3Store) ListBackups() ([]BackupInfo, error) {
-	// Build prefix for listing tenant's backups
 	prefix := s3s.buildTenantPath("backups") + "/"
 
-	// List objects with backup prefix
-	objectCh := s3s.client.ListObjects(s3s.ctx, s3s.bucket, minio.ListObjectsOptions{
-		Prefix:    prefix,
-		Recursive: true,
-	})
+	debug.Print("ListBackups: Looking for backups with prefix: %s\n", prefix)
 
 	var backups []BackupInfo
 
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
+	// List objects to get the file list
+	objectCh := s3s.client.ListObjects(ctx, s3s.bucket, minio.ListObjectsOptions{
+		Prefix: prefix,
+	})
+
 	for object := range objectCh {
 		if object.Err != nil {
-			return nil, fmt.Errorf("failed to list backup objects: %w", object.Err)
+			return nil, fmt.Errorf("error listing objects: %w", object.Err)
 		}
 
-		// Skip directories and non-backup files
-		if strings.HasSuffix(object.Key, "/") {
-			continue
-		}
-
-		// Only process .vault files
+		// Skip if not a vault file
 		if !strings.HasSuffix(object.Key, ".vault") {
 			continue
 		}
 
-		// Try to get backup info from metadata first (fast path)
-		info, err := s3s.getBackupInfoFromMetadata(object)
-		if err != nil {
-			// If metadata approach fails, try loading the full backup (slow path)
-			backupPath := strings.TrimPrefix(object.Key, prefix)
-			backupPath = strings.TrimSuffix(backupPath, ".vault")
+		debug.Print("ListBackups: Found vault file: %s\n", object.Key)
 
-			info, err = s3s.getBackupInfoFromContent(backupPath, object.Size)
-			if err != nil {
-				// Create minimal info for invalid backups
-				info = &BackupInfo{
-					BackupID:        fmt.Sprintf("unknown-%s", backupPath),
-					BackupTimestamp: object.LastModified,
-					VaultVersion:    "unknown",
-					BackupVersion:   "unknown",
-					TenantID:        s3s.tenantID,
-					FileSize:        object.Size,
-					IsValid:         false,
-				}
+		// Use StatObject to get metadata (ListObjects doesn't include user metadata)
+		statInfo, err := s3s.client.StatObject(ctx, s3s.bucket, object.Key, minio.StatObjectOptions{})
+		if err != nil {
+			debug.Print("ListBackups: Failed to stat object %s: %v\n", object.Key, err)
+			continue
+		}
+
+		debug.Print("ListBackups: StatObject found %d metadata entries\n", len(statInfo.UserMetadata))
+
+		// Convert StatObject result to ObjectInfo format for getBackupInfoFromMetadata
+		objectInfo := minio.ObjectInfo{
+			Key:          statInfo.Key,
+			LastModified: statInfo.LastModified,
+			Size:         statInfo.Size,
+			ContentType:  statInfo.ContentType,
+			UserMetadata: statInfo.UserMetadata,
+		}
+
+		// Extract backup info from metadata
+		backupInfo, err := s3s.getBackupInfoFromMetadata(objectInfo)
+		if err != nil {
+			debug.Print("ListBackups:  ListBackups: Failed to extract metadata for %s: %v\n", object.Key, err)
+			// Create a minimal BackupInfo for invalid backups
+			backupInfo = &BackupInfo{
+				BackupID:        extractBackupIDFromPath(object.Key),
+				BackupTimestamp: object.LastModified,
+				TenantID:        s3s.tenantID,
+				FileSize:        object.Size,
+				IsValid:         false,
 			}
 		}
 
-		// Ensure tenant ID is set
-		if info.TenantID == "" {
-			info.TenantID = s3s.tenantID
-		}
-
-		backups = append(backups, *info)
+		backups = append(backups, *backupInfo)
 	}
 
-	// Sort backups by timestamp (newest first)
-	sort.Slice(backups, func(i, j int) bool {
-		return backups[i].BackupTimestamp.After(backups[j].BackupTimestamp)
-	})
-
+	debug.Print("ListBackups: Found %d total backups\n", len(backups))
 	return backups, nil
+}
+
+// Helper function to extract backup ID from file path when metadata is missing
+func extractBackupIDFromPath(objectKey string) string {
+	// Extract filename without extension
+	parts := strings.Split(objectKey, "/")
+	if len(parts) == 0 {
+		return "unknown"
+	}
+
+	filename := parts[len(parts)-1]
+	if strings.HasSuffix(filename, ".vault") {
+		return strings.TrimSuffix(filename, ".vault")
+	}
+
+	return filename
 }
 
 // Health and utilities
 func (s3s *S3Store) Ping() error {
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
 	// For S3, test connectivity by checking if bucket exists
-	exists, err := s3s.client.BucketExists(s3s.ctx, s3s.bucket)
+	exists, err := s3s.client.BucketExists(ctx, s3s.bucket)
 	if err != nil {
 		return fmt.Errorf("failed to ping S3: %w", err)
 	}
@@ -714,8 +836,12 @@ func (s3s *S3Store) Close() error {
 	// Update last access time in config (similar to FileSystemStore)
 	objectName := s3s.buildTenantPath("vault.config")
 
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
 	// Try to load existing config
-	object, err := s3s.client.GetObject(s3s.ctx, s3s.bucket, objectName, minio.GetObjectOptions{})
+	object, err := s3s.client.GetObject(ctx, s3s.bucket, objectName, minio.GetObjectOptions{})
 	if err == nil {
 		defer object.Close()
 
@@ -728,7 +854,7 @@ func (s3s *S3Store) Close() error {
 				if updatedData, err := json.MarshalIndent(config, "", "  "); err == nil {
 					// Save updated config
 					_, _ = s3s.client.PutObject(
-						s3s.ctx,
+						ctx,
 						s3s.bucket,
 						objectName,
 						bytes.NewReader(updatedData),
@@ -746,11 +872,6 @@ func (s3s *S3Store) Close() error {
 				}
 			}
 		}
-	}
-
-	// Cancel context and cleanup
-	if s3s.ctxCancel != nil {
-		s3s.ctxCancel()
 	}
 	return nil
 }
@@ -773,24 +894,43 @@ func (s3s *S3Store) buildTenantPath(components ...string) string {
 	return s3s.buildTenantPathForTenant(s3s.tenantID, components...)
 }
 
+// Update buildTenantPathForTenant to handle all edge cases
 func (s3s *S3Store) buildTenantPathForTenant(tenantID string, components ...string) string {
 	var parts []string
+
+	// Add key prefix if it exists and is not empty
 	if s3s.keyPrefix != "" {
-		parts = append(parts, s3s.keyPrefix)
+		// Clean the key prefix - remove leading/trailing slashes
+		cleanPrefix := strings.Trim(s3s.keyPrefix, "/")
+		if cleanPrefix != "" {
+			parts = append(parts, cleanPrefix)
+		}
 	}
-	parts = append(parts, tenantID)
-	parts = append(parts, components...)
+
+	// Add tenant ID if it exists and is not empty
+	if tenantID != "" {
+		parts = append(parts, tenantID)
+	}
+
+	// Add all components, skipping empty ones
+	for _, component := range components {
+		if component != "" {
+			parts = append(parts, component)
+		}
+	}
+
+	// Join all parts with single slashes
 	return strings.Join(parts, "/")
 }
 
-func (s3s *S3Store) ensureBucket() error {
-	exists, err := s3s.client.BucketExists(s3s.ctx, s3s.bucket)
+func (s3s *S3Store) ensureBucket(ctx context.Context) error {
+	exists, err := s3s.client.BucketExists(ctx, s3s.bucket)
 	if err != nil {
 		return fmt.Errorf("failed to check if bucket exists: %w", err)
 	}
 
 	if !exists {
-		err = s3s.client.MakeBucket(s3s.ctx, s3s.bucket, minio.MakeBucketOptions{})
+		err = s3s.client.MakeBucket(ctx, s3s.bucket, minio.MakeBucketOptions{})
 		if err != nil {
 			return fmt.Errorf("failed to create bucket: %w", err)
 		}
@@ -800,21 +940,45 @@ func (s3s *S3Store) ensureBucket() error {
 }
 
 func (s3s *S3Store) getBackupInfoFromMetadata(object minio.ObjectInfo) (*BackupInfo, error) {
-	// Extract basic info from object metadata
-	backupID := object.UserMetadata["X-Amz-Meta-Backup-Id"]
-	backupVersion := object.UserMetadata["X-Amz-Meta-Backup-Version"]
-	vaultVersion := object.UserMetadata["X-Amz-Meta-Vault-Version"]
-	encryptionMethod := object.UserMetadata["X-Amz-Meta-Encryption-Method"]
-	checksumFromMeta := object.UserMetadata["X-Amz-Meta-Checksum"]
-	tenantID := object.UserMetadata["X-Amz-Meta-Tenant-Id"]
+	// Debug logging
+	debug.Print(" getBackupInfoFromMetadata: === Available metadata for %s ===\n", object.Key)
+	debug.Print(" getBackupInfoFromMetadata: UserMetadata count: %d\n", len(object.UserMetadata))
 
-	if backupID == "" || backupVersion == "" {
-		return nil, fmt.Errorf("incomplete metadata")
+	for k, v := range object.UserMetadata {
+		debug.Print(" getBackupInfoFromMetadata: '%s' = '%s'\n", k, v)
 	}
+	debug.Print(" getBackupInfoFromMetadata: === End of metadata ===\n")
+
+	// Helper function for case-insensitive metadata lookup
+	getMetadata := func(metadataMap map[string]string, key string) string {
+		// Normalize the search key
+		searchKey := strings.ToLower(strings.ReplaceAll(key, "_", "-"))
+
+		for k, v := range metadataMap {
+			// Normalize the metadata key
+			normalizedKey := strings.ToLower(strings.ReplaceAll(k, "_", "-"))
+			if normalizedKey == searchKey {
+				return v
+			}
+		}
+		return ""
+	}
+
+	// Extract metadata
+	backupID := getMetadata(object.UserMetadata, "backup-id")
+	vaultVersion := getMetadata(object.UserMetadata, "vault-version")
+	backupVersion := getMetadata(object.UserMetadata, "backup-version")
+	encryptionMethod := getMetadata(object.UserMetadata, "encryption-method")
+	tenantID := getMetadata(object.UserMetadata, "tenant-id")
+	checksum := getMetadata(object.UserMetadata, "checksum")
+	timestampStr := getMetadata(object.UserMetadata, "backup-timestamp")
+
+	debug.Print(" getBackupInfoFromMetadata: Extracted metadata: backupID='%s', version='%s', tenant='%s'\n",
+		backupID, vaultVersion, tenantID)
 
 	// Parse timestamp
 	var backupTimestamp time.Time
-	if timestampStr := object.UserMetadata["X-Amz-Meta-Backup-Timestamp"]; timestampStr != "" {
+	if timestampStr != "" {
 		if parsed, err := time.Parse(time.RFC3339, timestampStr); err == nil {
 			backupTimestamp = parsed
 		} else {
@@ -824,11 +988,6 @@ func (s3s *S3Store) getBackupInfoFromMetadata(object minio.ObjectInfo) (*BackupI
 		backupTimestamp = object.LastModified
 	}
 
-	// Use current tenant if not specified in metadata
-	if tenantID == "" {
-		tenantID = s3s.tenantID
-	}
-
 	return &BackupInfo{
 		BackupID:         backupID,
 		BackupTimestamp:  backupTimestamp,
@@ -836,8 +995,10 @@ func (s3s *S3Store) getBackupInfoFromMetadata(object minio.ObjectInfo) (*BackupI
 		BackupVersion:    backupVersion,
 		EncryptionMethod: encryptionMethod,
 		TenantID:         tenantID,
+		Checksum:         checksum,
 		FileSize:         object.Size,
-		IsValid:          checksumFromMeta != "",
+		IsValid:          backupID != "",
+		StorePath:        object.Key, // Store the S3 object key as store path
 	}, nil
 }
 
@@ -879,4 +1040,25 @@ func (s3s *S3Store) getBackupInfoFromContent(backupPath string, fileSize int64) 
 func (s3s *S3Store) calculateChecksum(data []byte) string {
 	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:])
+}
+
+// Add this method to your S3Store for debugging
+func (s3s *S3Store) debugObjectMetadata(objectPath string) {
+	debug.Print("debugObjectMetadata: Checking stored metadata for: %s\n", objectPath)
+
+	// Create a fresh context for this operation
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
+	defer cancel()
+
+	// Get object info directly
+	objInfo, err := s3s.client.StatObject(ctx, s3s.bucket, objectPath, minio.StatObjectOptions{})
+	if err != nil {
+		debug.Print("debugObjectMetadata: Error getting object info: %v\n", err)
+		return
+	}
+
+	debug.Print("debugObjectMetadata: StatObject UserMetadata count: %d\n", len(objInfo.UserMetadata))
+	for key, value := range objInfo.UserMetadata {
+		debug.Print("debugObjectMetadata: StatObject metadata: '%s' = '%s'\n", key, value)
+	}
 }

@@ -12,7 +12,7 @@ import (
 	"regexp"
 	"southwinds.dev/volta/audit"
 	"southwinds.dev/volta/internal/debug"
-	"southwinds.dev/volta/mem"
+	"southwinds.dev/volta/internal/mem"
 	"southwinds.dev/volta/persist"
 	"strings"
 	"sync"

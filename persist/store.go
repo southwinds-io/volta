@@ -241,6 +241,10 @@ type BackupInfo struct {
 	// associated with the backup. This allows for multi-tenant support
 	// and ensures data segregation for privacy and security.
 	TenantID string `json:"tenant_id"`
+
+	Checksum string `json:"checksum"`
+
+	StorePath string `json:"store_path"` // Store-agnostic path/identifier
 }
 
 // DetailedBackupInfo provides detailed information regarding a backup that requires decryption.

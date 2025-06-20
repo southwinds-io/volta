@@ -166,3 +166,47 @@ func DecryptValue(encryptedData, key []byte) ([]byte, error) {
 
 	return plaintext, nil
 }
+
+func IsWeakKey(key []byte) bool {
+	if len(key) < 32 {
+		return true
+	}
+
+	// Check for all zeros
+	allZero := true
+	for _, b := range key {
+		if b != 0 {
+			allZero = false
+			break
+		}
+	}
+	if allZero {
+		return true
+	}
+
+	// Check for all same byte
+	firstByte := key[0]
+	allSame := true
+	for _, b := range key[1:] {
+		if b != firstByte {
+			allSame = false
+			break
+		}
+	}
+	if allSame {
+		return true
+	}
+
+	// Basic entropy check - count unique bytes
+	uniqueBytes := make(map[byte]bool)
+	for _, b := range key {
+		uniqueBytes[b] = true
+	}
+
+	// Should have reasonable variety (at least 16 different byte values)
+	if len(uniqueBytes) < 16 {
+		return true
+	}
+
+	return false
+}

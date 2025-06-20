@@ -93,7 +93,7 @@ func (fl *FileLogger) Log(action string, success bool, metadata map[string]inter
 	return fl.writeEvent(event)
 }
 
-// writeEvent writes an event to the log file and updates cache
+// writeEvent writes an event to the log file in JSONL format and updates cache
 func (fl *FileLogger) writeEvent(event Event) error {
 	fl.mu.Lock()
 	defer fl.mu.Unlock()

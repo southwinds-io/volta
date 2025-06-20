@@ -279,7 +279,7 @@ func (v *Vault) RotateKey(reason string) (*KeyMetadata, error) {
 	// Weak Key Detection:
 	// Analyzes generated key for weak patterns, insufficient entropy, or
 	// known compromised values that could undermine cryptographic security.
-	if isWeakKey(newMasterKey) {
+	if crypto.IsWeakKey(newMasterKey) {
 		// Secure cleanup of weak key material
 		for i := range newMasterKey {
 			newMasterKey[i] = 0
