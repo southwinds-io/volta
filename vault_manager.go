@@ -581,7 +581,7 @@ func NewVaultManagerWithStoreConfig(baseOptions Options, storeConfig persist.Sto
 // vaultManager := NewVaultManagerFileStore(options, basePath, auditLogger)
 //
 // // Now, vaultManager can be used to manage vault operations for different tenants.
-func NewVaultManagerFileStore(options Options, basePath string, auditLogger audit.Logger) *VaultManager {
+func NewVaultManagerFileStore(options Options, basePath string, auditLogger audit.Logger) VaultManagerService {
 	return &VaultManager{
 		options: options,
 		storeFactory: func(tenantID string) (persist.Store, error) {
@@ -628,11 +628,11 @@ func NewVaultManagerFileStore(options Options, basePath string, auditLogger audi
 //	}
 //
 // // Use vaultManager as needed...
-func NewVaultManagerS3Store(options Options, storeConfig persist.StoreConfig, auditLogger audit.Logger) (*VaultManager, error) {
+func NewVaultManagerS3Store(options Options, storeConfig persist.S3Config, auditLogger audit.Logger) (VaultManagerService, error) {
 	return &VaultManager{
 		options: options,
 		storeFactory: func(tenantID string) (persist.Store, error) {
-			return persist.NewS3StoreFromConfig(storeConfig, tenantID)
+			return persist.NewS3Store(storeConfig, tenantID)
 		},
 		mu:     sync.RWMutex{},
 		vaults: make(map[string]VaultService),

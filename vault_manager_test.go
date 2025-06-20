@@ -80,15 +80,15 @@ func TestVaultManagerCreation(t *testing.T) {
 	}
 
 	// Test S3Store constructor (should not fail even with empty config)
-	s3Config := persist.StoreConfig{
-		Type: persist.StoreTypeS3,
-		Config: map[string]interface{}{
-			"bucket": "test-bucket",
-			"region": "us-east-1",
-		},
-	}
-
-	managerS3, err := NewVaultManagerS3Store(options, s3Config, audit.NewNoOpLogger())
+	managerS3, err := NewVaultManagerS3Store(options, persist.S3Config{
+		Endpoint:        "",
+		AccessKeyID:     "",
+		SecretAccessKey: "",
+		Bucket:          "test-bucket",
+		KeyPrefix:       "",
+		UseSSL:          false,
+		Region:          "us-east-1",
+	}, audit.NewNoOpLogger())
 	if err != nil {
 		t.Logf("S3 VaultManager creation failed (expected in test environment): %v", err)
 	} else if managerS3 == nil {
@@ -790,7 +790,8 @@ func createTestVaultManager(t *testing.T, basePath string) *VaultManager {
 	}
 
 	options := createTestManagerOptions()
-	return NewVaultManagerFileStore(options, basePath, audit.NewNoOpLogger())
+	v := NewVaultManagerFileStore(options, basePath, audit.NewNoOpLogger())
+	return v.(*VaultManager)
 }
 
 func createTestManagerOptions() Options {
@@ -819,7 +820,8 @@ func createTestVaultManagerWithAudit(t *testing.T, basePath string) *VaultManage
 		EnableMemoryLock:     false,
 	}
 
-	return NewVaultManagerFileStore(options, basePath, audit.NewNoOpLogger())
+	v := NewVaultManagerFileStore(options, basePath, audit.NewNoOpLogger())
+	return v.(*VaultManager)
 }
 
 func cleanupManager(t *testing.T) {
