@@ -1,5 +1,5 @@
 ![volta](volta.jpeg)
-# Volta: Secure Secret Storage and Data Encryption for Go Applications
+# Volta: Data Encryption & Secret Storage for Go Applications
 
 ## Introduction and Core Concepts
 
@@ -18,6 +18,7 @@ This document serves as a guide to understanding Volta's architecture, its compo
 
 For additional articles expanding the understanding of Volta see:
 
+- [Rationale, Architecture, and Advantages](docs/arc.md)
 - [Feature Set](docs/features.md)
 - [Comparing with HashiCorp Vault](docs/compare_vault.md)
 - [Facilitating GDPR compliance](docs/gdpr.md)
