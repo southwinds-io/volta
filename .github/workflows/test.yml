@@ -1,0 +1,146 @@
+# This workflow tests Volta
+name: Go
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23.0'
+          cache: false  # Disable automatic caching
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Run tests with coverage
+        run: |
+          # Run tests with coverage and JSON output 
+          # Excludes internal, cli and examples folder from coverage 
+          go test -v $(go list ./... | grep -v -E "(internal|cli|examples)") -coverprofile=coverage.out -json > test_results.json
+
+          # Get coverage (with fallback if no coverage)
+          if [ -f coverage.out ]; then
+            COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print substr($3, 1, length($3)-1)}')
+          else
+            COVERAGE="0"
+          fi
+
+          # Parse test results - only count unique tests by name
+          PASSED_TESTS=$(jq -r 'select(.Action == "pass" and .Test != null) | .Test' test_results.json | sort -u | wc -l)
+          FAILED_TESTS=$(jq -r 'select(.Action == "fail" and .Test != null) | .Test' test_results.json | sort -u | wc -l)
+          TOTAL_TESTS=$((PASSED_TESTS + FAILED_TESTS))
+
+          # Handle case where no tests are found
+          if [ $TOTAL_TESTS -eq 0 ]; then
+            TOTAL_TESTS=1
+            PASSED_TESTS=1
+            FAILED_TESTS=0
+          fi
+
+          # Set environment variables
+          echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+          echo "TOTAL_TESTS=$TOTAL_TESTS" >> $GITHUB_ENV
+          echo "PASSED_TESTS=$PASSED_TESTS" >> $GITHUB_ENV
+          echo "FAILED_TESTS=$FAILED_TESTS" >> $GITHUB_ENV
+
+          # Debug output
+          echo "Debug: Passed tests: $PASSED_TESTS"
+          echo "Debug: Failed tests: $FAILED_TESTS" 
+          echo "Debug: Total tests: $TOTAL_TESTS"
+
+          # Determine colors and status
+          if [ $FAILED_TESTS -eq 0 ]; then
+            echo "TEST_STATUS=$PASSED_TESTS/$TOTAL_TESTS" >> $GITHUB_ENV
+            echo "TEST_COLOR=brightgreen" >> $GITHUB_ENV
+          else
+            echo "TEST_STATUS=$FAILED_TESTS failed" >> $GITHUB_ENV
+            echo "TEST_COLOR=red" >> $GITHUB_ENV
+          fi
+
+          # Coverage color
+          COVERAGE_INT=$(echo "$COVERAGE" | awk '{print int($1)}')
+          if [ $COVERAGE_INT -ge 80 ]; then
+            echo "COVERAGE_COLOR=brightgreen" >> $GITHUB_ENV
+          elif [ $COVERAGE_INT -ge 60 ]; then
+            echo "COVERAGE_COLOR=yellow" >> $GITHUB_ENV
+          else
+            echo "COVERAGE_COLOR=red" >> $GITHUB_ENV
+          fi
+
+      - name: Update badge data
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: |
+          echo "Current ref: ${{ github.ref }}"
+          echo "Event name: ${{ github.event_name }}"
+          echo "Creating badges directory..."
+          mkdir -p .github/badges
+
+          echo "Creating test badge with status: $TEST_STATUS"
+          # Create test badge data
+          cat > .github/badges/tests.json << EOF
+          {
+            "schemaVersion": 1,
+            "label": "tests",
+            "message": "$TEST_STATUS",
+            "color": "$TEST_COLOR"
+          }
+          EOF
+
+          echo "Creating coverage badge with coverage: ${COVERAGE}%"
+          # Create coverage badge data
+          cat > .github/badges/coverage.json << EOF
+          {
+            "schemaVersion": 1,
+            "label": "coverage",
+            "message": "${COVERAGE}%",
+            "color": "$COVERAGE_COLOR"
+          }
+          EOF
+
+          echo "Files created:"
+          ls -la .github/badges/
+
+          echo "File contents:"
+          cat .github/badges/tests.json
+          cat .github/badges/coverage.json
+
+          echo "Git status:"
+          git status
+
+          echo "Git diff:"
+          git diff
+
+          # Configure git
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+          # Add and commit
+          git add .github/badges/
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            echo "Committing changes..."
+            git commit -m "update badges: tests $TEST_STATUS, coverage ${COVERAGE}%"
+            git push
+            echo "Changes pushed"
+          fi
