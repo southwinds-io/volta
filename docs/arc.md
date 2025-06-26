@@ -23,7 +23,7 @@ By internalizing these functions, Volta reduces the need for external vault depe
 
 Volta’s architecture is founded on the principles of simplicity, zero-trust for external components, and defense-in-depth. It achieves its security and operational goals through a unique combination of an embedded library model, a segregated administrative interface, and considered cryptographic design.
 
-![Architecture](volta.png)
+![Architecture](volta.svg)
 
 #### 3.1. The Embedded Library Model: Application as the Vault
 

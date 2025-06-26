@@ -1,72 +1,89 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/27.0.9 Chrome/134.0.6998.205 Electron/35.4.0 Safari/537.36" version="27.0.9">
   <diagram name="Page-1" id="F1OX1xQuZv3Kd4AUn7XD">
-    <mxGraphModel dx="1234" dy="827" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="1299" dy="2036" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-2" value="&lt;b&gt;Multi-Tenant Service&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10px&quot;&gt;Primary Application&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontFamily=Architects Daughter;" vertex="1" parent="1">
-          <mxGeometry x="310" y="326.0000000000001" width="390" height="240" as="geometry" />
+        <mxCell id="NRT96urlB1bMRuHR2Ta4-5" value="Storage Backend" style="rounded=1;whiteSpace=wrap;html=1;fontFamily=Architects Daughter;fontStyle=1;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="810" y="320" width="280" height="260" as="geometry" />
         </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-1" value="&lt;span&gt;Reads&lt;br&gt;Encrypted Secrets&lt;br&gt;&lt;br&gt;Transient Encrypt&lt;br&gt;&amp;amp; Decrypt&lt;/span&gt;" style="endArrow=open;html=1;rounded=0;fontFamily=Architects Daughter;edgeStyle=orthogonalEdgeStyle;curved=1;labelBackgroundColor=none;endFill=0;" edge="1" parent="1" target="iL78VrmHgS3CEXUIYZX5-4">
-          <mxGeometry x="0.217" width="50" height="50" relative="1" as="geometry">
+        <mxCell id="NRT96urlB1bMRuHR2Ta4-1" value="&lt;b&gt;External Vault&lt;br&gt;&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;fontFamily=Architects Daughter;" vertex="1" parent="1">
+          <mxGeometry x="310" y="-61" width="390" height="111" as="geometry" />
+        </mxCell>
+        <mxCell id="NRT96urlB1bMRuHR2Ta4-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;" edge="1" parent="1" source="iL78VrmHgS3CEXUIYZX5-14" target="NRT96urlB1bMRuHR2Ta4-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="iL78VrmHgS3CEXUIYZX5-2" value="&lt;b&gt;Application Plane&lt;/b&gt;&lt;br&gt;(Multi-tenant SaaS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontFamily=Architects Daughter;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="310" y="326" width="390" height="304" as="geometry" />
+        </mxCell>
+        <mxCell id="iL78VrmHgS3CEXUIYZX5-1" value="&lt;span&gt;Reads&lt;br&gt;Encrypted Secrets&lt;br&gt;&lt;br&gt;Encrypt&lt;br&gt;&amp;amp; Decrypt PII&lt;/span&gt;" style="endArrow=open;html=1;rounded=0;fontFamily=Architects Daughter;edgeStyle=orthogonalEdgeStyle;curved=1;labelBackgroundColor=none;endFill=0;" parent="1" target="iL78VrmHgS3CEXUIYZX5-4" edge="1">
+          <mxGeometry x="0.2096" width="50" height="50" relative="1" as="geometry">
             <mxPoint x="644" y="378.5999999999999" as="sourcePoint" />
             <mxPoint x="886" y="379" as="targetPoint" />
-            <mxPoint x="-1" as="offset" />
+            <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-3" value="&lt;span style=&quot;font-weight: 700;&quot;&gt;Management Plane&lt;/span&gt;&lt;br style=&quot;font-weight: 700;&quot;&gt;&lt;div style=&quot;font-weight: 700; font-size: 10px;&quot;&gt;Secure, Internal Network Zone&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;fontFamily=Architects Daughter;" vertex="1" parent="1">
+        <mxCell id="iL78VrmHgS3CEXUIYZX5-3" value="&lt;span style=&quot;font-weight: 700;&quot;&gt;Management Plane&lt;/span&gt;&lt;br style=&quot;font-weight: 700;&quot;&gt;&lt;div style=&quot;font-weight: 700; font-size: 10px;&quot;&gt;Secure, Internal Network Zone&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;labelPosition=center;verticalLabelPosition=top;align=center;verticalAlign=bottom;fontFamily=Architects Daughter;" parent="1" vertex="1">
           <mxGeometry x="310" y="130" width="390" height="160" as="geometry" />
         </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-4" value="Pluggable Storage Backend&lt;br&gt;&lt;div style=&quot;font-size: 10px&quot;&gt;(e.g., Internal S3, File System)&lt;/div&gt;" style="shape=datastore;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontFamily=Architects Daughter;" vertex="1" parent="1">
+        <mxCell id="iL78VrmHgS3CEXUIYZX5-4" value="Pluggable Storage Backend&lt;br&gt;&lt;div style=&quot;font-size: 10px&quot;&gt;(e.g., Internal S3, File System)&lt;/div&gt;" style="shape=datastore;whiteSpace=wrap;html=1;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontFamily=Architects Daughter;" parent="1" vertex="1">
           <mxGeometry x="860" y="339" width="180" height="79" as="geometry" />
         </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-5" value="Encrypted Tenant Keys" style="shape=document;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#f5f5f5;strokeColor=#666666;fontFamily=Architects Daughter;" vertex="1" parent="1">
+        <mxCell id="iL78VrmHgS3CEXUIYZX5-5" value="Encrypted Tenant Keys" style="shape=document;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#f5f5f5;strokeColor=#666666;fontFamily=Architects Daughter;" parent="1" vertex="1">
           <mxGeometry x="827" y="439" width="120" height="51" as="geometry" />
         </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-6" value="Encrypted Secrets" style="shape=document;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#f5f5f5;strokeColor=#666666;fontFamily=Architects Daughter;" vertex="1" parent="1">
+        <mxCell id="iL78VrmHgS3CEXUIYZX5-6" value="Encrypted Secrets" style="shape=document;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#f5f5f5;strokeColor=#666666;fontFamily=Architects Daughter;" parent="1" vertex="1">
           <mxGeometry x="960" y="439" width="120" height="51" as="geometry" />
         </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-7" value="Audit Logs" style="shape=document;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#f5f5f5;strokeColor=#666666;fontFamily=Architects Daughter;" vertex="1" parent="1">
+        <mxCell id="iL78VrmHgS3CEXUIYZX5-7" value="Audit Logs" style="shape=document;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#f5f5f5;strokeColor=#666666;fontFamily=Architects Daughter;" parent="1" vertex="1">
           <mxGeometry x="890" y="501" width="120" height="61" as="geometry" />
         </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-8" value="&lt;span&gt;Manages Vault&lt;br&gt;(Add/Rotate Secrets, Key Rotation)&lt;/span&gt;" style="endArrow=open;html=1;rounded=0;exitX=1;exitY=0.5;entryX=0.5;entryY=0;edgeStyle=orthogonalEdgeStyle;entryDx=0;entryDy=0;fontFamily=Architects Daughter;elbow=vertical;endFill=0;" edge="1" parent="1" source="iL78VrmHgS3CEXUIYZX5-13" target="iL78VrmHgS3CEXUIYZX5-4">
+        <mxCell id="iL78VrmHgS3CEXUIYZX5-8" value="&lt;span&gt;Manages Vault&lt;br&gt;(Add/Rotate Secrets, Key Rotation)&lt;/span&gt;" style="endArrow=open;html=1;rounded=0;exitX=1;exitY=0.5;entryX=0.5;entryY=0;edgeStyle=orthogonalEdgeStyle;entryDx=0;entryDy=0;fontFamily=Architects Daughter;elbow=vertical;endFill=0;" parent="1" source="iL78VrmHgS3CEXUIYZX5-13" target="iL78VrmHgS3CEXUIYZX5-4" edge="1">
           <mxGeometry x="0.0039" y="-50" width="50" height="50" relative="1" as="geometry">
             <mxPoint x="580" y="90" as="sourcePoint" />
             <mxPoint x="740" y="250" as="targetPoint" />
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-9" value="Provides S3 Credentials&amp;nbsp;&lt;div&gt;&amp;amp; Volta Passphrase&lt;/div&gt;" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=1 2;entryX=0;entryY=0.25;fontFamily=Architects Daughter;edgeStyle=orthogonalEdgeStyle;exitX=0.4;exitY=0.1;exitDx=0;exitDy=0;exitPerimeter=0;endFill=0;" edge="1" parent="1" source="iL78VrmHgS3CEXUIYZX5-10" target="iL78VrmHgS3CEXUIYZX5-2">
-          <mxGeometry x="-0.5545" y="-20" width="50" height="50" relative="1" as="geometry">
-            <mxPoint x="180" y="353" as="sourcePoint" />
-            <mxPoint x="300" y="353" as="targetPoint" />
-            <Array as="points">
-              <mxPoint x="190" y="475" />
-              <mxPoint x="190" y="386" />
-            </Array>
-            <mxPoint as="offset" />
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-10" value="Env Vars / Startup Config" style="shape=cloud;whiteSpace=wrap;html=1;fontFamily=Architects Daughter;" vertex="1" parent="1">
-          <mxGeometry x="140" y="468" width="130" height="70" as="geometry" />
-        </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-11" value="&lt;b&gt;Administrator&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10px&quot;&gt;(Requires VPN + 2FA)&lt;/font&gt;" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#f8cecc;strokeColor=#b85450;fontFamily=Architects Daughter;" vertex="1" parent="1">
+        <mxCell id="iL78VrmHgS3CEXUIYZX5-11" value="&lt;b&gt;Administrator&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 10px&quot;&gt;(Requires VPN + 2FA)&lt;/font&gt;" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#f8cecc;strokeColor=#b85450;fontFamily=Architects Daughter;" parent="1" vertex="1">
           <mxGeometry x="360" y="175" width="30" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-12" value="Uses" style="endArrow=open;html=1;rounded=0;entryX=0;entryY=0.5;exitX=1;exitY=0.5;fontFamily=Architects Daughter;endFill=0;" edge="1" parent="1" source="iL78VrmHgS3CEXUIYZX5-11" target="iL78VrmHgS3CEXUIYZX5-13">
+        <mxCell id="iL78VrmHgS3CEXUIYZX5-12" value="Uses" style="endArrow=open;html=1;rounded=0;entryX=0;entryY=0.5;exitX=1;exitY=0.5;fontFamily=Architects Daughter;endFill=0;" parent="1" source="iL78VrmHgS3CEXUIYZX5-11" target="iL78VrmHgS3CEXUIYZX5-13" edge="1">
           <mxGeometry width="50" height="50" relative="1" as="geometry">
             <mxPoint x="410" y="205" as="sourcePoint" />
             <mxPoint x="460" y="155" as="targetPoint" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-13" value="&lt;b&gt;Volta CLI&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;font-size: 10px&quot;&gt;Go Binary on Bastion Host&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Architects Daughter;" vertex="1" parent="1">
-          <mxGeometry x="480" y="160" width="160" height="80" as="geometry" />
+        <mxCell id="NRT96urlB1bMRuHR2Ta4-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;endArrow=open;endFill=0;" edge="1" parent="1" source="iL78VrmHgS3CEXUIYZX5-13" target="NRT96urlB1bMRuHR2Ta4-2">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-14" value="&lt;b&gt;APPLICATION with&lt;br&gt;Volta Embedded Library&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;font-size: 10px&quot;&gt;Internal Crypto Engine&lt;/div&gt;" style="whiteSpace=wrap;html=1;shape=process;rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=Architects Daughter;" vertex="1" parent="1">
+        <mxCell id="NRT96urlB1bMRuHR2Ta4-4" value="Retrieve Volta&lt;br&gt;Passphrase &amp;amp; &lt;br&gt;Storage Credentials" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontFamily=Architects Daughter;" vertex="1" connectable="0" parent="NRT96urlB1bMRuHR2Ta4-3">
+          <mxGeometry x="-0.4059" y="-1" relative="1" as="geometry">
+            <mxPoint y="-47" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="iL78VrmHgS3CEXUIYZX5-13" value="&lt;b&gt;Volta CLI&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;font-size: 10px&quot;&gt;Go Binary on Bastion Host&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Architects Daughter;" parent="1" vertex="1">
+          <mxGeometry x="480" y="165" width="160" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="NRT96urlB1bMRuHR2Ta4-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;endArrow=open;endFill=0;labelBackgroundColor=none;labelBorderColor=none;fontFamily=Architects Daughter;" edge="1" parent="1" source="iL78VrmHgS3CEXUIYZX5-14" target="NRT96urlB1bMRuHR2Ta4-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="NRT96urlB1bMRuHR2Ta4-9" value="&lt;span&gt;Store / Retrieve&lt;br&gt;encrypted PII&lt;/span&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontFamily=Architects Daughter;labelBackgroundColor=none;" vertex="1" connectable="0" parent="NRT96urlB1bMRuHR2Ta4-8">
+          <mxGeometry x="-0.1538" relative="1" as="geometry">
+            <mxPoint x="65" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="iL78VrmHgS3CEXUIYZX5-14" value="&lt;b&gt;APPLICATION with&lt;br&gt;Volta Embedded Library&lt;/b&gt;&lt;br&gt;&lt;div style=&quot;font-size: 10px&quot;&gt;Internal Crypto Engine&lt;/div&gt;" style="whiteSpace=wrap;html=1;shape=process;rounded=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=Architects Daughter;" parent="1" vertex="1">
           <mxGeometry x="365" y="349.3299999999999" width="280" height="58.67" as="geometry" />
         </mxCell>
-        <mxCell id="iL78VrmHgS3CEXUIYZX5-15" value="&lt;font color=&quot;#B20000&quot;&gt;&lt;b&gt;Zero Key Exposure&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;div&gt;The raw key material is never exposed to the application code. The library performs all operations internally.&lt;/div&gt;" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff2cc;strokeColor=#d6b656;size=16;fontFamily=Architects Daughter;" vertex="1" parent="1">
-          <mxGeometry x="365" y="479.33000000000004" width="280" height="66.66666666666666" as="geometry" />
+        <mxCell id="iL78VrmHgS3CEXUIYZX5-15" value="&lt;font color=&quot;#B20000&quot;&gt;&lt;b&gt;Zero Key Exposure&lt;/b&gt;&lt;/font&gt;&lt;br&gt;&lt;div&gt;The raw key material is never exposed to the application code. The library performs all operations internally.&lt;/div&gt;" style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;darkOpacity=0.05;fillColor=#fff2cc;strokeColor=#d6b656;size=16;fontFamily=Architects Daughter;fontSize=10;" parent="1" vertex="1">
+          <mxGeometry x="365" y="560" width="280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="NRT96urlB1bMRuHR2Ta4-2" value="&lt;b&gt;External Vault Service&lt;/b&gt;&lt;br&gt;(Authenticates using caller Trusted Identity)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Architects Daughter;" vertex="1" parent="1">
+          <mxGeometry x="407.5" y="-41" width="195" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="NRT96urlB1bMRuHR2Ta4-6" value="Application&lt;br&gt;Database&lt;br&gt;(Encrypted PII)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fontFamily=Architects Daughter;" vertex="1" parent="1">
+          <mxGeometry x="440" y="460" width="130" height="80" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
