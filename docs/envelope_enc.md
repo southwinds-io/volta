@@ -5,9 +5,9 @@ to encrypt the DEK. This creates a layered approach to security. The encrypted D
 
 Let's examine the two rotation scenarios supported by Volta:
 
-**1) Full Rotation (New KEK and New DEK)**
+**1) DEK Rotation (requires data to be re-encrypted)**
 
-*   **What it means:** In this scenario, Volta generates a new KEK and a new DEK. The new DEK is used to re-encrypt the actual data, and the new KEK is used to encrypt this new DEK.
+*   **What it means:** In this scenario, Volta generates a new DEK. The new DEK is used to re-encrypt the actual data in the vault (secrets), and the current KEK is used to encrypt this new DEK. Any PII data encrypted with the old DEK and stored outside the vault (e.g. database) must be re-encrypted before the old DEK is destroyed.
 *   **Pros:**
     *   **Maximum Security:** This is the most secure approach. If an old DEK was somehow compromised, re-encrypting the data with a new DEK mitigates that risk. Rotating the KEK adds another layer of protection.
     *   **Addresses DEK Compromise:** If there's a suspicion that a DEK has been compromised, simply rotating the KEK is insufficient, as the old DEK can still decrypt the data. A full rotation addresses this.
@@ -20,7 +20,7 @@ Let's examine the two rotation scenarios supported by Volta:
     *   When the age or volume of data encrypted with a single DEK reaches a certain threshold, increasing the risk of cryptanalytic attacks.
     *   To protect against data on lost or old backups from being decrypted if the current DEK is later compromised.
 
-**2) Partial Rotation (New KEK only - leave existing DEK) to avoid re-encryption of data**
+**2) KEK Rotation (avoid the need to re-encrypt data)**
 
 *   **What it means:** In this scenario, Volta generates a new KEK. This new KEK is then used to re-encrypt the *existing* DEK(s). The actual data remains encrypted with the original DEK(s) and is not re-encrypted.
 *   **Pros:**
