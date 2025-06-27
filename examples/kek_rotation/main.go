@@ -62,7 +62,7 @@ func main() {
 	fmt.Println("\n🔐 Step 1: Initial PII Encryption")
 	vault, err := vaultManager.GetVault(tenantID)
 	if err != nil {
-		log.Fatalf("Failed to get vault for tenant %s: %v", tenantID, err)
+		log.Fatalf("Failed to get vault for tenant %s", tenantID)
 	}
 	fmt.Printf("✓ Obtained vault for tenant: %s\n", tenantID)
 

@@ -69,7 +69,7 @@ func main() {
 	vaultStartTime := time.Now()
 	vault, err := vaultManager.GetVault(tenantID)
 	if err != nil {
-		log.Fatalf("❌ Failed to get vault for tenant %s: %v", tenantID, err)
+		log.Fatalf("❌ Failed to get vault for tenant %s", tenantID)
 	}
 	vaultInitDuration := time.Since(vaultStartTime)
 	fmt.Printf("✓ Vault obtained for tenant: %s (initialization time: %v)\n", tenantID, vaultInitDuration)

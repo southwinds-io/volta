@@ -76,7 +76,7 @@ func main() {
 
 	vault, err := vaultManager.GetVault(tenantID)
 	if err != nil {
-		log.Fatalf("❌ Failed to get vault for tenant %s: %v", tenantID, err)
+		log.Fatalf("❌ Failed to get vault for tenant %s", tenantID)
 	}
 
 	// Populate vault with test secrets
@@ -126,7 +126,7 @@ func main() {
 	newVaultManager := volta.NewVaultManagerFileStore(options, basePath, auditLogger)
 	restoreVault, err := newVaultManager.GetVault(tenantID)
 	if err != nil {
-		log.Fatalf("❌ Failed to get vault for restoration: %v", err)
+		log.Fatalf("❌ Failed to get vault for restoration")
 	}
 
 	backupLocation, err := filepath.Abs(filepath.Join(backupDestination, backupFileName))
