@@ -36,13 +36,6 @@ Let's examine the two rotation scenarios supported by Volta:
     *   To enable easier key management and reduce reliance on a single KEK for protecting numerous DEKs.
     *   In situations where re-encrypting the entire dataset is impractical due to performance or operational constraints.
 
-Both full and partial rotation scenarios make sense in a vault implementing Key Envelope Encryption, but they serve different purposes and address different risks:
-
-*   **Partial Rotation (KEK only):** This should be a standard, periodic procedure. It's an efficient way to limit the risk associated with a KEK compromise without the significant overhead of data re-encryption. It enhances the security of the DEKs by regularly changing their "wrapper."
-*   **Full Rotation (KEK and DEK):** This is a more involved process that should be performed when there's a higher level of risk, such as a suspected DEK compromise, or to meet specific compliance requirements that mandate data re-encryption. It provides the highest level of security refresh.
-
-Ideally, a robust vault system would offer the capability for both types of rotation, allowing administrators to choose the appropriate strategy based on their specific security needs, risk assessments, and operational constraints. Some systems facilitate this by re-encrypting the DEK with the new KEK when the DEK is next unwrapped.
-
 # Is re-encryption mandated?
 
 While many security policies and regulations mandate robust data protection, including encryption, very few explicitly *require* the re-encryption of the underlying data (the DEK-encrypted data in an envelope encryption scheme) on a fixed schedule. Most regulations focus on ensuring data is encrypted using strong, current standards and that the encryption keys themselves are managed securely, which includes key rotation.
@@ -65,8 +58,8 @@ Here's a breakdown of how common regulations and standards approach this:
 
 **Why the Distinction Matters:**
 
-*   **Rotating KEKs (Partial Rotation):** This is a relatively lightweight operation that significantly enhances security by limiting the exposure of DEKs. It's a common best practice.
-*   **Re-encrypting Data (Full Rotation):** This is a much heavier operation, consuming significant time and resources. It's typically undertaken when:
+*   **Rotating KEKs:** This is a relatively lightweight operation that significantly enhances security by limiting the exposure of DEKs. It's a common best practice.
+*   **Rotating DEKs (Re-encrypting Data):** This is a much heavier operation, consuming significant time and resources. It's typically undertaken when:
     *   A DEK is known or suspected to be compromised.
     *   There's a need to upgrade the cryptographic algorithm used for the DEK.
     *   Specific internal policies or a very high-risk assessment dictates it.
@@ -77,7 +70,7 @@ Here's a breakdown of how common regulations and standards approach this:
 While stringent security policies and regulations universally demand strong encryption and secure key management (including KEK rotation), an explicit, universally mandated schedule for *re-encrypting the actual data with new DEKs* is rare. Instead, the requirement for data re-encryption often arises from:
 
 1.  **Compromise:** If a DEK is compromised.
-2.  **Key Lifecycle Management:** When a DEK reaches the end of its defined cryptoperiod or needs to be retired for other policy reasons.
+2.  **Key Lifecycle Management:** When a DEK reaches the end of its defined crypto-period or needs to be retired for other policy reasons.
 3.  **Risk Assessment:** If an organization's risk assessment identifies that the continued use of an existing DEK (even if not compromised) poses an unacceptable risk.
 4.  **Technological Upgrades:** When migrating to stronger encryption algorithms for the data itself.
 
