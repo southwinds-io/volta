@@ -1508,9 +1508,9 @@ func (tm *VaultManager) RotateAllTenantKeys(tenantIDs []string, reason string) (
 			result.Details["old_key_retrieval_error"] = err.Error()
 		}
 
-		// Perform the rotation using existing RotateKey method
+		// Perform the rotation using existing RotateDataEncryptionKey method
 		rotationStartTime := time.Now()
-		newKeyMeta, err := vault.RotateKey(reason)
+		newKeyMeta, err := vault.RotateDataEncryptionKey(reason)
 		rotationDuration := time.Since(rotationStartTime)
 
 		if err != nil {
@@ -3347,7 +3347,7 @@ func (tm *VaultManager) RotateAllTenantPassphrases(tenantIDs []string, newPassph
 
 		// Perform the rotation on the vault
 		rotationStartTime := time.Now()
-		if err := vault.RotatePassphrase(newPassphrase, reason); err != nil {
+		if err := vault.RotateKeyEncryptionKey(newPassphrase, reason); err != nil {
 			result.Error = fmt.Sprintf("passphrase rotation failed: %v", err)
 			results[i] = result
 

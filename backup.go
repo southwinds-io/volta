@@ -243,8 +243,6 @@ func (v *Vault) Backup(destinationDir, passphrase string) error {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
 
-	// Validation code stays the same...
-
 	backupID := backup.GenerateBackupID()
 	v.audit.Log("backup_start", true, map[string]interface{}{
 		"destination": destinationDir,
@@ -613,80 +611,75 @@ func (v *Vault) Restore(backupDir, passphrase string) error {
 	// Deserialize backup data
 	var backupData persist.BackupData
 	if err = json.Unmarshal(backupJSON, &backupData); err != nil {
-		return fmt.Errorf("failed to serialize backup data: %w", err)
+		return fmt.Errorf("failed to deserialize backup data: %w", err) // Fixed typo
 	}
 
-	// ✅ Clear existing vault state COMPLETELY
-	debug.Print("Clearing existing vault state before restore")
+	// Clear existing vault state COMPLETELY
+	debug.Print("Clearing existing vault state before restore\n")
 
 	v.keyEnclaves = make(map[string]*memguard.Enclave)
 	v.keyMetadata = make(map[string]KeyMetadata)
 	v.currentKeyID = ""
 
 	if v.derivationKeyEnclave != nil {
-		debug.Print("Destroying existing derivation key enclave")
+		debug.Print("Restore: Destroying existing derivation key enclave\n")
 		v.derivationKeyEnclave = nil
 	}
 
 	if v.secretsContainer != nil {
-		debug.Print("Destroying existing secrets container")
+		debug.Print("Restore: Destroying existing secrets container\n")
 		v.secretsContainer = nil
 	}
 
-	// ✅ Clear the derivation salt too!
-	debug.Print("Clearing existing derivation salt")
+	// Clear the derivation salt too!
+	debug.Print("Restore: Clearing existing derivation salt\n")
 	v.derivationSaltEnclave = nil
 
-	// ✅ Restore data to storage FIRST
-	debug.Print("Restoring backup data to storage")
-	if err = v.restoreBackupData(&backupData); err != nil {
-		return fmt.Errorf("failed to restore backup data: %w", err)
+	// Restore data to storage
+	debug.Print("Restore: Restoring backup data to storage\n")
+	if err = v.restoreBackupDataToStorage(&backupData); err != nil {
+		return fmt.Errorf("failed to restore backup data to storage: %w", err)
 	}
 
-	// ✅ Load the restored salt from storage (now versioned)
-	debug.Print("Loading restored salt from storage")
-	versionedSalt, err := v.store.LoadSalt()
-	if err != nil {
-		return fmt.Errorf("failed to load restored salt: %w", err)
+	// Use the salt directly from the backup data that is already in memory.
+	// This avoids any potential issues with the storage layer's read/write timing or caching.
+	debug.Print("Restore: Using restored salt directly from backup data\n")
+	if backupData.Salt == nil {
+		return errors.New("invalid backup data: salt is missing")
 	}
-	v.derivationSaltEnclave = memguard.NewEnclave(versionedSalt.Data)
-	debug.Print("Loaded salt (version: %s), first 16 bytes: %x", versionedSalt.Version, versionedSalt.Data[:16])
+	v.derivationSaltEnclave = memguard.NewEnclave(backupData.Salt)
+	debug.Print("Restore: Using salt with size: %d\n", len(backupData.Salt))
 
-	// ✅ THEN recreate derivation key with restored salt
-	debug.Print("Recreating derivation key with restored salt")
+	// THEN recreate derivation key with restored salt
+	debug.Print("Recreating derivation key with restored salt\n")
 	if err = v.setupDerivationKey(passphrase, ""); err != nil {
 		return fmt.Errorf("failed to recreate derivation key: %w", err)
 	}
-	debug.Print("Derivation key recreated with restored salt")
+	debug.Print("Restore: Derivation key recreated with restored salt\n")
 
 	// After setupDerivationKey call
 	if v.derivationKeyEnclave != nil {
 		keyBuffer, err := v.derivationKeyEnclave.Open()
 		if err == nil {
-			debug.Print("Restored derivation key (first 16 bytes): %x", keyBuffer.Bytes()[:16])
+			debug.Print("Restored derivation key (first 16 bytes): %x\n", keyBuffer.Bytes()[:16])
 			keyBuffer.Destroy()
 		}
 	}
 
-	// ✅ CRITICAL: Load the keys from restored metadata into memory
-	debug.Print("Loading keys from restored metadata")
+	// Load the keys from restored metadata into memory
+	debug.Print("Loading keys from restored metadata\n")
 	if err = v.initializeKeys(); err != nil {
 		return fmt.Errorf("failed to load keys from restored metadata: %w", err)
 	}
-	debug.Print("Keys loaded successfully, current key: %s", v.currentKeyID)
+	debug.Print("Restore: Keys loaded successfully, current key: %s\n", v.currentKeyID)
 
-	// ✅ Now restore secrets with the loaded keys
-	debug.Print("Keys loaded, now restoring secrets")
-	if err = v.restoreSecretsFromBackup(&backupData); err != nil {
-		return fmt.Errorf("failed to restore secrets: %w", err)
-	}
-
-	// ✅ Load the restored secrets into memory
-	debug.Print("Loading restored secrets into memory")
+	// Load the restored secrets into memory (secrets already in storage)
+	debug.Print("Restore: Loading restored secrets into memory\n")
 	if err = v.initializeSecretsContainer(); err != nil {
 		return fmt.Errorf("failed to initialize secrets container from restored data: %w", err)
 	}
 
+	debug.Print("Restore: Vault restore completed successfully\n")
 	return nil
 }
 
@@ -1071,13 +1064,73 @@ func (v *Vault) GetBackupInfo(backupPath string) (*persist.BackupInfo, error) {
 
 // Helper functions
 
+func (v *Vault) restoreBackupDataToStorage(backupData *persist.BackupData) error {
+	debug.Print("restoreBackupDataToStorage: Starting restore of backup data to storage\n")
+
+	// ADD THIS DEBUGGING
+	debug.Print("restoreBackupDataToStorage: backupData.Salt != nil: %v\n", backupData.Salt != nil)
+	if backupData.Salt != nil {
+		debug.Print("restoreBackupDataToStorage: backupData.Salt size: %d\n", len(backupData.Salt))
+	}
+
+	debug.Print("restoreBackupDataToStorage: backupData.VaultMetadata != nil: %v\n", backupData.VaultMetadata != nil)
+	if backupData.VaultMetadata != nil {
+		debug.Print("restoreBackupDataToStorage: backupData.VaultMetadata size: %d\n", len(backupData.VaultMetadata))
+	}
+
+	debug.Print("restoreBackupDataToStorage: backupData.SecretsData != nil: %v\n", backupData.SecretsData != nil)
+	if backupData.SecretsData != nil {
+		debug.Print("restoreBackupDataToStorage: backupData.SecretsData size: %d\n", len(backupData.SecretsData))
+		debug.Print("restoreBackupDataToStorage: backupData.SecretsData first 32: %x\n", backupData.SecretsData[:min(32, len(backupData.SecretsData))])
+	} else {
+		debug.Print("restoreBackupDataToStorage: backupData.SecretsData is NIL!\n")
+	}
+
+	// Restore salt to storage
+	if backupData.Salt != nil {
+		debug.Print("restoreBackupDataToStorage: Restoring salt to storage, size: %d bytes\n", len(backupData.Salt))
+		if _, err := v.store.SaveSalt(backupData.Salt, ""); err != nil {
+			return fmt.Errorf("failed to restore salt: %w", err)
+		}
+		debug.Print("restoreBackupDataToStorage: Salt restored successfully\n")
+	} else {
+		debug.Print("restoreBackupDataToStorage: No salt data in backup to restore\n")
+	}
+
+	// Restore vault metadata (keys) to storage
+	if backupData.VaultMetadata != nil {
+		debug.Print("restoreBackupDataToStorage: Restoring vault metadata to storage, size: %d bytes\n", len(backupData.VaultMetadata))
+		if _, err := v.store.SaveMetadata(backupData.VaultMetadata, ""); err != nil {
+			return fmt.Errorf("failed to restore vault metadata: %w", err)
+		}
+		debug.Print("restoreBackupDataToStorage: Vault metadata restored successfully\n")
+	} else {
+		debug.Print("restoreBackupDataToStorage: No vault metadata in backup to restore\n")
+	}
+
+	// Handle empty/nil secrets properly
+	if backupData.SecretsData != nil && len(backupData.SecretsData) > 0 {
+		debug.Print("restoreBackupDataToStorage: Restoring secrets data to storage, size: %d bytes\n", len(backupData.SecretsData))
+		if _, err := v.store.SaveSecretsData(backupData.SecretsData, ""); err != nil {
+			return fmt.Errorf("failed to restore secrets data: %w", err)
+		}
+		debug.Print("restoreBackupDataToStorage: Secrets data restored successfully\n")
+	} else {
+		debug.Print("restoreBackupDataToStorage: No secrets data in backup to restore - vault will be initialized with empty secrets\n")
+		// Don't try to save empty/nil data - let initializeSecretsContainer handle it
+	}
+
+	debug.Print("restoreBackupDataToStorage: All backup data successfully restored to storage\n")
+	return nil
+}
+
 func (v *Vault) restoreSecretsFromBackup(backupData *persist.BackupData) error {
 	if len(backupData.SecretsData) == 0 {
-		debug.Print("No secrets data to restore")
+		debug.Print("No secrets data to restore\n")
 		return nil
 	}
 
-	debug.Print("Restoring secrets data, size: %d bytes", len(backupData.SecretsData))
+	debug.Print("Restoring secrets data, size: %d bytes\n", len(backupData.SecretsData))
 
 	// The backupData.SecretsData contains the RAW JSON secrets data (not encrypted)
 	// We need to re-encrypt it with the current vault keys
@@ -1091,7 +1144,7 @@ func (v *Vault) restoreSecretsFromBackup(backupData *persist.BackupData) error {
 		return fmt.Errorf("failed to save restored secrets: %w", err)
 	}
 
-	debug.Print("Successfully restored and re-encrypted secrets")
+	debug.Print("Successfully restored and re-encrypted secrets\n")
 	return nil
 }
 
@@ -1135,7 +1188,7 @@ func (v *Vault) clearVaultState() error {
 func (v *Vault) collectBackupData() (*persist.BackupData, error) {
 	backupData := &persist.BackupData{}
 
-	// Get versioned salt data
+	// Get versioned salt data (existing code is fine)
 	if versionedSalt, err := v.store.LoadSalt(); err != nil {
 		if !misc.IsNotFoundError(err) {
 			return nil, fmt.Errorf("failed to load salt: %w", err)
@@ -1144,7 +1197,7 @@ func (v *Vault) collectBackupData() (*persist.BackupData, error) {
 		backupData.Salt = versionedSalt.Data
 	}
 
-	// Load versioned vault metadata (keys + key metadata)
+	// Load versioned vault metadata (existing code is fine)
 	if versionedMetadata, err := v.store.LoadMetadata(); err != nil {
 		if !misc.IsNotFoundError(err) {
 			return nil, fmt.Errorf("failed to load vault metadata: %w", err)
@@ -1153,19 +1206,40 @@ func (v *Vault) collectBackupData() (*persist.BackupData, error) {
 		backupData.VaultMetadata = versionedMetadata.Data
 	}
 
-	// ✅ Load and DECRYPT secrets data for backup
-	if secretsContainer, err := v.getSecretsContainer(); err != nil {
+	// Load secrets directly from storage, bypass in-memory container
+	debug.Print("collectBackupData: Loading secrets data directly from storage for backup\n")
+	if versionedSecrets, err := v.store.LoadSecretsData(); err != nil {
 		if !misc.IsNotFoundError(err) {
-			return nil, fmt.Errorf("failed to load secrets container: %w", err)
+			return nil, fmt.Errorf("failed to load secrets data from storage: %w", err)
 		}
+		// No secrets = OK for backup (new/empty vault)
+		debug.Print("collectBackupData: No secrets data found in storage - vault may be empty\n")
+		backupData.SecretsData = nil
 	} else {
-		// Store the decrypted secrets container as JSON
-		secretsJSON, err := json.Marshal(secretsContainer)
-		if err != nil {
-			return nil, fmt.Errorf("failed to serialize secrets container: %w", err)
+		// ADD DEBUGGING HERE
+		debug.Print("collectBackupData: Raw secrets data size: %d\n", len(versionedSecrets.Data))
+		debug.Print("collectBackupData: Raw secrets data first 32: %x\n", versionedSecrets.Data[:min(32, len(versionedSecrets.Data))])
+
+		// Check if it's all zeros
+		allZeros := true
+		for _, b := range versionedSecrets.Data {
+			if b != 0 {
+				allZeros = false
+				break
+			}
 		}
-		backupData.SecretsData = secretsJSON
+		debug.Print("collectBackupData: Secrets data is all zeros: %v\n", allZeros)
+
+		// Store the raw encrypted data from storage
+		// This preserves the encryption - restore will handle decryption
+		backupData.SecretsData = versionedSecrets.Data
+		debug.Print("collectBackupData: Loaded encrypted secrets from storage for backup, size: %d bytes\n", len(versionedSecrets.Data))
 	}
+
+	debug.Print("collectBackupData: Backup data collection complete - Salt: %v, Metadata: %v, Secrets: %v\n",
+		backupData.Salt != nil,
+		backupData.VaultMetadata != nil,
+		backupData.SecretsData != nil)
 
 	return backupData, nil
 }

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// RotatePassphrase performs emergency passphrase rotation for the vault.
+// RotateKeyEncryptionKey performs emergency passphrase rotation for the vault effectively changing the Key Encryption Key.
 //
 // This method implements a secure passphrase rotation process that re-encrypts all
 // existing encryption keys with a new derivation key derived from the new passphrase.
@@ -86,13 +86,13 @@ import (
 // Usage Examples:
 //
 //	// Basic rotation
-//	err := vault.RotatePassphrase("new-secure-passphrase", "scheduled rotation")
+//	err := vault.RotateKeyEncryptionKey("new-secure-passphrase", "scheduled rotation")
 //	if err != nil {
 //	    log.Printf("Rotation failed: %v", err)
 //	}
 //
 //	// Emergency rotation
-//	err := vault.RotatePassphrase("emergency-passphrase", "potential compromise detected")
+//	err := vault.RotateKeyEncryptionKey("emergency-passphrase", "potential compromise detected")
 //	if err != nil {
 //	    log.Printf("Emergency rotation failed: %v", err)
 //	}
@@ -109,7 +109,7 @@ import (
 //   - Verify vault integrity with test encryption/decryption
 //   - Monitor audit logs for any anomalies
 //   - Consider rotating dependent credentials if compromise is suspected
-func (v *Vault) RotatePassphrase(newPassphrase string, reason string) error {
+func (v *Vault) RotateKeyEncryptionKey(newPassphrase string, reason string) error {
 	if v.closed {
 		return fmt.Errorf("vault is closed")
 	}

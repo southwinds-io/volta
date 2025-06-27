@@ -178,7 +178,7 @@ func TestDestroyKeyWithSecretsFailure(t *testing.T) {
 	}
 
 	// Now rotate the key (this makes the old key inactive but keeps the secret)
-	_, err = vault.RotateKey("TestDestroyKeyWithSecretsFailure")
+	_, err = vault.RotateDataEncryptionKey("TestDestroyKeyWithSecretsFailure")
 	if err != nil {
 		t.Fatalf("Failed to rotate keys: %v", err)
 	}

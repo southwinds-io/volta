@@ -62,7 +62,7 @@ func TestRotateKeyBasic(t *testing.T) {
 	}
 
 	// Perform key rotation
-	newMeta, err := vault.RotateKey("TestRotateKeyBasic")
+	newMeta, err := vault.RotateDataEncryptionKey("TestRotateKeyBasic")
 	if err != nil {
 		t.Fatalf("Failed to rotate key: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestRotateKeyEncryptionCompatibility(t *testing.T) {
 	}
 
 	// Rotate the key
-	_, err = vault.RotateKey("TestRotateKeyEncryptionCompatibility")
+	_, err = vault.RotateDataEncryptionKey("TestRotateKeyEncryptionCompatibility")
 	if err != nil {
 		t.Fatalf("Failed to rotate key: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestRotateKeyPersistence(t *testing.T) {
 	}
 
 	// Rotate key and encrypt data
-	rotatedMeta, err := vault1.RotateKey("TestRotateKeyPersistence")
+	rotatedMeta, err := vault1.RotateDataEncryptionKey("TestRotateKeyPersistence")
 	if err != nil {
 		t.Fatalf("Failed to rotate key: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestRotateKeyMultipleRotations(t *testing.T) {
 	}
 
 	// First rotation
-	rotation1Meta, err := vault.RotateKey("TestRotateKeyMultipleRotations")
+	rotation1Meta, err := vault.RotateDataEncryptionKey("TestRotateKeyMultipleRotations")
 	if err != nil {
 		t.Fatalf("Failed to perform first rotation: %v", err)
 	}
@@ -288,7 +288,7 @@ func TestRotateKeyMultipleRotations(t *testing.T) {
 	}
 
 	// Second rotation
-	rotation2Meta, err := vault.RotateKey("TestRotateKeyMultipleRotations")
+	rotation2Meta, err := vault.RotateDataEncryptionKey("TestRotateKeyMultipleRotations")
 	if err != nil {
 		t.Fatalf("Failed to perform second rotation: %v", err)
 	}
@@ -369,7 +369,7 @@ func TestRotateKeyNoExistingKey(t *testing.T) {
 	initialMeta, err := vault.GetActiveKeyMetadata()
 	if err != nil {
 		// If no key exists, rotation should still work
-		rotatedMeta, err := vault.RotateKey("TestRotateKeyNoExistingKey")
+		rotatedMeta, err := vault.RotateDataEncryptionKey("TestRotateKeyNoExistingKey")
 		if err != nil {
 			t.Fatalf("Failed to rotate key when no existing key: %v", err)
 		}
@@ -395,7 +395,7 @@ func TestRotateKeyNoExistingKey(t *testing.T) {
 		}
 	} else {
 		// If key exists, just verify normal rotation
-		rotatedMeta, err := vault.RotateKey("TestRotateKeyNoExistingKey")
+		rotatedMeta, err := vault.RotateDataEncryptionKey("TestRotateKeyNoExistingKey")
 		if err != nil {
 			t.Fatalf("Failed to rotate existing key: %v", err)
 		}
@@ -429,7 +429,7 @@ func TestRotateKeyMetadataValidation(t *testing.T) {
 	beforeRotation := time.Now()
 
 	// Perform rotation
-	rotatedMeta, err := vault.RotateKey("TestRotateKeyMetadataValidation")
+	rotatedMeta, err := vault.RotateDataEncryptionKey("TestRotateKeyMetadataValidation")
 	if err != nil {
 		t.Fatalf("Failed to rotate key: %v", err)
 	}

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// RotateKey performs secure cryptographic key rotation with comprehensive data protection.
+// RotateDataEncryptionKey performs secure cryptographic key rotation with comprehensive data protection.
 //
 // This method implements a complete key rotation workflow that generates new cryptographic
 // keys, re-encrypts all protected data with the new key, and safely transitions the vault
@@ -151,7 +151,7 @@ import (
 // - Validation Before Save: Comprehensive validation before storage persistence
 // - Rollback Capability: Supports complete operation reversal on storage failures
 // - Integrity Checking: Validates storage integrity after successful updates
-func (v *Vault) RotateKey(reason string) (*KeyMetadata, error) {
+func (v *Vault) RotateDataEncryptionKey(reason string) (*KeyMetadata, error) {
 	requestID := v.newRequestID()
 	startTime := time.Now()
 
@@ -553,7 +553,7 @@ func (v *Vault) RotateKey(reason string) (*KeyMetadata, error) {
 }
 
 // SECURITY IMPLICATIONS AND CONSIDERATIONS:
-// RotateKey addresses comprehensive security requirements:
+// RotateDataEncryptionKey addresses comprehensive security requirements:
 //
 // Forward Secrecy:
 // - New key generation provides forward secrecy for future encrypted data
@@ -580,7 +580,7 @@ func (v *Vault) RotateKey(reason string) (*KeyMetadata, error) {
 // - Validation ensures cryptographic operations meet security requirements
 //
 // PERFORMANCE CHARACTERISTICS AND OPTIMIZATION:
-// RotateKey performance considerations for operational deployment:
+// RotateDataEncryptionKey performance considerations for operational deployment:
 //
 // Operation Complexity:
 // - O(n) complexity where n is number of stored secrets for re-encryption
@@ -607,7 +607,7 @@ func (v *Vault) RotateKey(reason string) (*KeyMetadata, error) {
 // - Lock duration minimization for improved concurrent operation performance
 //
 // OPERATIONAL INTEGRATION AND MONITORING:
-// RotateKey integration with operational systems:
+// RotateDataEncryptionKey integration with operational systems:
 //
 // Monitoring Integration:
 // - Rotation success and failure rate monitoring for operational health
@@ -628,7 +628,7 @@ func (v *Vault) RotateKey(reason string) (*KeyMetadata, error) {
 // - Workflow integration with change management and approval processes
 //
 // COMPLIANCE AND REGULATORY SUPPORT:
-// RotateKey supports comprehensive compliance requirements:
+// RotateDataEncryptionKey supports comprehensive compliance requirements:
 //
 // Regulatory Compliance:
 // - Key rotation requirements for PCI DSS, HIPAA, SOX, and other regulations

@@ -532,7 +532,7 @@ func (fs *FileSystemStore) RestoreBackup(backupPath string) (*BackupContainer, e
 
 	// Parse the JSON
 	var container BackupContainer
-	if err := json.Unmarshal(data, &container); err != nil {
+	if err = json.Unmarshal(data, &container); err != nil {
 		return nil, fmt.Errorf("failed to parse backup file: %w", err)
 	}
 

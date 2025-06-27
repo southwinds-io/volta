@@ -11,17 +11,17 @@ import (
 	"testing"
 )
 
-func TestVaultPassphraseRotation(t *testing.T) {
+func TestVaultKEKRotation(t *testing.T) {
 	tests := []struct {
 		name string
 		fn   func(*testing.T)
 	}{
-		{"PassphraseRotationBasic", TestPassphraseRotationBasic},
-		{"PassphraseRotationWithSecrets", TestPassphraseRotationWithSecrets},
-		{"PassphraseRotationValidation", TestPassphraseRotationValidation},
-		{"PassphraseRotationMultipleKeys", TestPassphraseRotationMultipleKeys},
-		{"PassphraseRotationErrorHandling", TestPassphraseRotationErrorHandling},
-		{"PassphraseRotationAuditLogging", TestPassphraseRotationAuditLogging},
+		{"KEKRotationBasic", TestKEKRotationBasic},
+		{"KEKRotationWithSecrets", TestKEKRotationWithSecrets},
+		{"KEKRotationValidation", TestKEKRotationValidation},
+		{"KEKRotationMultipleKeys", TestKEKRotationMultipleKeys},
+		{"KEKRotationErrorHandling", TestKEKRotationErrorHandling},
+		{"KEKRotationAuditLogging", TestKEKRotationAuditLogging},
 	}
 
 	// Ensure clean test environment
@@ -34,7 +34,7 @@ func TestVaultPassphraseRotation(t *testing.T) {
 	}
 }
 
-func TestPassphraseRotationBasic(t *testing.T) {
+func TestKEKRotationBasic(t *testing.T) {
 	vault := createTestVault(t, createTestOptions(), tempDir)
 	defer vault.Close()
 
@@ -55,10 +55,10 @@ func TestPassphraseRotationBasic(t *testing.T) {
 	}
 
 	// Perform passphrase rotation
-	newPassphrase := "new-secure-passphrase-for-rotation-test"
+	newKEK := "new-secure-passphrase-for-rotation-test"
 	reason := "test rotation"
 
-	err = vault.RotatePassphrase(newPassphrase, reason)
+	err = vault.RotateKeyEncryptionKey(newKEK, reason)
 	if err != nil {
 		t.Fatalf("Failed to rotate passphrase: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestPassphraseRotationBasic(t *testing.T) {
 	memguard.WipeBytes(decrypted)
 }
 
-func TestPassphraseRotationWithSecrets(t *testing.T) {
+func TestKEKRotationWithSecrets(t *testing.T) {
 	vault := createTestVaultWithDerivation(t)
 	defer vault.Close()
 
@@ -132,8 +132,8 @@ func TestPassphraseRotationWithSecrets(t *testing.T) {
 	}
 
 	// Perform passphrase rotation
-	newPassphrase := "rotated-passphrase-with-secrets"
-	err := vault.RotatePassphrase(newPassphrase, "testing with secrets")
+	newKEK := "rotated-passphrase-with-secrets"
+	err := vault.RotateKeyEncryptionKey(newKEK, "testing with secrets")
 	if err != nil {
 		t.Fatalf("Failed to rotate passphrase: %v", err)
 	}
@@ -230,12 +230,12 @@ func TestPassphraseRotationWithSecrets(t *testing.T) {
 	}
 }
 
-func TestPassphraseRotationValidation(t *testing.T) {
+func TestKEKRotationValidation(t *testing.T) {
 	vault := createTestVault(t, createTestOptions(), tempDir)
 	defer vault.Close()
 
 	// Test empty passphrase
-	err := vault.RotatePassphrase("", "test")
+	err := vault.RotateKeyEncryptionKey("", "test")
 	if err == nil || !strings.Contains(err.Error(), "passphrase cannot be empty") {
 		t.Error("Should reject empty passphrase")
 	}
@@ -244,7 +244,7 @@ func TestPassphraseRotationValidation(t *testing.T) {
 	closedVault := createEmptyTestVault(t)
 	closedVault.Close()
 
-	err = closedVault.RotatePassphrase("new-pass", "test")
+	err = closedVault.RotateKeyEncryptionKey("new-pass", "test")
 	if err == nil || !strings.Contains(err.Error(), "vault is closed") {
 		t.Error("Should reject rotation on closed vault")
 	}
@@ -254,7 +254,7 @@ func TestPassphraseRotationValidation(t *testing.T) {
 	auditLog := &mockAuditLogger{events: make([]mockAuditEvent, 0)}
 	vault.audit = auditLog
 
-	err = vault.RotatePassphrase("valid-passphrase", "")
+	err = vault.RotateKeyEncryptionKey("valid-passphrase", "")
 	if err != nil {
 		t.Fatalf("Rotation should succeed with empty reason: %v", err)
 	}
@@ -276,19 +276,19 @@ func TestPassphraseRotationValidation(t *testing.T) {
 	vault.audit = originalAudit
 }
 
-func TestPassphraseRotationMultipleKeys(t *testing.T) {
+func TestKEKRotationMultipleKeys(t *testing.T) {
 	vault := createTestVault(t, createTestOptions(), tempDir)
 	defer vault.Close()
 
 	// Create multiple keys through rotation
 	// Rotate to create second key
-	_, err := vault.RotateKey("TestPassphraseRotationMultipleKeys")
+	_, err := vault.RotateDataEncryptionKey("TestKEKRotationMultipleKeys")
 	if err != nil {
 		t.Fatalf("Failed to rotate key: %v", err)
 	}
 
 	// Rotate again to create third key
-	_, err = vault.RotateKey("TestPassphraseRotationMultipleKeys")
+	_, err = vault.RotateDataEncryptionKey("TestKEKRotationMultipleKeys")
 	if err != nil {
 		t.Fatalf("Failed to rotate key again: %v", err)
 	}
@@ -305,8 +305,8 @@ func TestPassphraseRotationMultipleKeys(t *testing.T) {
 	}
 
 	// Perform passphrase rotation
-	newPassphrase := "multi-key-rotation-test"
-	err = vault.RotatePassphrase(newPassphrase, "testing multiple keys")
+	newKEK := "multi-key-rotation-test"
+	err = vault.RotateKeyEncryptionKey(newKEK, "testing multiple keys")
 	if err != nil {
 		t.Fatalf("Failed to rotate passphrase with multiple keys: %v", err)
 	}
@@ -338,7 +338,7 @@ func TestPassphraseRotationMultipleKeys(t *testing.T) {
 	}
 }
 
-func TestPassphraseRotationErrorHandling(t *testing.T) {
+func TestKEKRotationErrorHandling(t *testing.T) {
 	vault := createTestVault(t, createTestOptions(), tempDir)
 	defer vault.Close()
 
@@ -368,7 +368,7 @@ func TestPassphraseRotationErrorHandling(t *testing.T) {
 	}
 	originalSaltVersion := originalVersionedSalt.Version
 
-	err = vault.RotatePassphrase("new-passphrase", "test failure")
+	err = vault.RotateKeyEncryptionKey("new-passphrase", "test failure")
 	if err == nil {
 		t.Fatal("Rotation should have failed due to store failure")
 	}
@@ -421,7 +421,7 @@ func TestPassphraseRotationErrorHandling(t *testing.T) {
 	// Test successful rotation after fixing the store
 	vault.store = originalStore
 
-	err = vault.RotatePassphrase("new-passphrase-success", "test success after failure")
+	err = vault.RotateKeyEncryptionKey("new-passphrase-success", "test success after failure")
 	if err != nil {
 		t.Fatalf("Rotation should succeed with working store: %v", err)
 	}
@@ -444,7 +444,7 @@ func TestPassphraseRotationErrorHandling(t *testing.T) {
 	memguard.WipeBytes(decrypted)
 }
 
-func TestPassphraseRotationAuditLogging(t *testing.T) {
+func TestKEKRotationAuditLogging(t *testing.T) {
 	vault := createTestVault(t, createTestOptions(), tempDir)
 	defer vault.Close()
 
@@ -457,7 +457,7 @@ func TestPassphraseRotationAuditLogging(t *testing.T) {
 	reason := "audit logging test"
 
 	// Perform rotation
-	err := vault.RotatePassphrase("audit-test-passphrase", reason)
+	err := vault.RotateKeyEncryptionKey("audit-test-passphrase", reason)
 	if err != nil {
 		t.Fatalf("Failed to rotate passphrase: %v", err)
 	}

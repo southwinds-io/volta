@@ -242,7 +242,7 @@ func testBackupSuccessful(t *testing.T) {
 		TenantID         string `json:"tenant_id,omitempty"`
 	}
 
-	if err := json.Unmarshal(backupContent, &container); err != nil {
+	if err = json.Unmarshal(backupContent, &container); err != nil {
 		t.Fatalf("Backup file is not valid JSON: %v", err)
 	}
 
@@ -392,7 +392,7 @@ func testBackupWithMultipleKeys(t *testing.T) {
 
 	t.Logf("Storing initial secrets with first key")
 	for name, secret := range initialSecrets {
-		_, err := vault.StoreSecret(name, secret.data, secret.tags, secret.contentType)
+		_, err = vault.StoreSecret(name, secret.data, secret.tags, secret.contentType)
 		if err != nil {
 			t.Fatalf("Failed to store initial secret %s: %v", name, err)
 		}
@@ -641,7 +641,7 @@ func testBackupWithMultipleKeys(t *testing.T) {
 
 	t.Logf("Testing backup restoration...")
 
-	// **KEY FIX**: Copy the backup file to a location where the Restore method expects it
+	// Copy the backup file to a location where the Restore method expects it
 	// The Restore method might be treating the path relative to its backup directory
 	// So we'll use just the filename and let it resolve relative to the restored vault's backup dir
 
@@ -1281,7 +1281,7 @@ func testBackupWithNoMetadata(t *testing.T) {
 	t.Logf("Initial active key: %s", activeKey.KeyID)
 
 	// Rotate once to have multiple keys but no secret metadata
-	newKey, err := vault.RotateKey("testBackupWithNoMetadata")
+	newKey, err := vault.RotateDataEncryptionKey("testBackupWithNoMetadata")
 	if err != nil {
 		t.Fatalf("Failed to rotate key: %v", err)
 	}
@@ -1502,7 +1502,7 @@ func testBackupFailsWhenKeyLoadFails(t *testing.T) {
 	vault := createTestVaultWithDerivation(t)
 
 	// Create some keys first
-	_, err := vault.RotateKey("testBackupFailsWhenKeyLoadFails")
+	_, err := vault.RotateDataEncryptionKey("testBackupFailsWhenKeyLoadFails")
 	if err != nil {
 		t.Fatalf("Failed to rotate key: %v", err)
 	}

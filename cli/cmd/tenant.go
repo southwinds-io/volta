@@ -169,7 +169,7 @@ func runTenantRotateKey(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Rotating key for tenant '%s'...\n", tenantID)
 
-	newKeyID, err := vault.RotateKey(rotationReason)
+	newKeyID, err := vault.RotateDataEncryptionKey(rotationReason)
 	if err != nil {
 		return fmt.Errorf("failed to rotate key for tenant %s: %w", tenantID, err)
 	}
@@ -256,7 +256,7 @@ func runTenantRotatePassphrase(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("Rotating passphrase for tenant '%s'...\n", tenantID)
 
-	err = vault.RotatePassphrase(newPassphrase, rotationReason)
+	err = vault.RotateKeyEncryptionKey(newPassphrase, rotationReason)
 	if err != nil {
 		return fmt.Errorf("failed to rotate passphrase for tenant %s: %w", tenantID, err)
 	}

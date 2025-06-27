@@ -420,7 +420,7 @@ func TestVaultManagerAuditOperations(t *testing.T) {
 	}
 
 	// Rotate key to generate more audit events
-	_, err = vault.RotateKey("TestVaultManagerAuditOperations")
+	_, err = vault.RotateDataEncryptionKey("TestVaultManagerAuditOperations")
 	if err != nil {
 		t.Fatalf("Failed to rotate key: %v", err)
 	}

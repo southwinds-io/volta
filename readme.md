@@ -120,6 +120,18 @@ storing and retrieving secrets.
 The example [here](examples/encryption/main.go) demonstrates initialising the vault manager, accessing a tenant's vault,
 and using it to directly **encrypt and decrypt sensitive data**, such as PII.
 
+#### Key Encryption Key (KEK) Rotation
+
+The example [here](examples/kek_rotation/main.go) demonstrates the process of Key Encryption Key (KEK) rotation, while maintaining access to existing encrypted data without requiring data re-encryption.
+
+#### Data Encryption Key (DEK) Rotation
+
+The example [here](examples/dek_rotation/main.go) demonstrates the complete lifecycle of Data Encryption Key (DEK) rotation and its impact on encrypted data accessibility.
+
+#### Volta's Backup & Restore
+
+The example [here](examples/backup/main.go) demonstrates the complete backup/restore cycle of a vault with encrypted PII and secrets.
+
 ### Installation
 
 ```sh
@@ -158,6 +170,7 @@ the `/docs` directory:
 - [Architectural Patterns for PCI DSS Compliance using an Embedded Cryptographic Library](docs/pci_dss.md)
 - [Facilitating Zero Trust Architecture with an Embedded Cryptographic Library](docs/zta.md)
 - [Architectural Patterns for Secure Secret Handling in Concurrent Applications](docs/secret_handling.md)
+- [Envelop Encryption and Key Rotation Scenarios](docs/envelope_enc.md)
 
 ### Core Concepts
 

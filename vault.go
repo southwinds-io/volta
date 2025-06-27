@@ -1978,6 +1978,12 @@ func (v *Vault) initializeSecretsContainer() error {
 		return fmt.Errorf("failed to load existing secrets: %w", err)
 	}
 
+	// Check if secrets data is empty/nil
+	if versionedData.Data == nil || len(versionedData.Data) == 0 {
+		debug.Print("initializeSecretsContainer: Secrets data is empty, creating empty container\n")
+		return v.createEmptySecretsContainer()
+	}
+
 	debug.Print("initializeSecretsContainer: Loaded existing secrets data, size: %d bytes, storage version: %s\n",
 		len(versionedData.Data), versionedData.Version)
 
@@ -2027,12 +2033,24 @@ func (v *Vault) createEmptySecretsContainer() error {
 	debug.Print("createEmptySecretsContainer: Encrypted container to %d bytes, first 32: %x\n",
 		len(encryptedData), encryptedData[:min(32, len(encryptedData))])
 
-	// Store ENCRYPTED data in enclave (consistent with rest of system)
+	// DEBUG: Check data before enclave creation
+	debug.Print("createEmptySecretsContainer: BEFORE enclave - data first 32: %x\n", encryptedData[:min(32, len(encryptedData))])
+
+	// Make a copy for storage BEFORE creating enclave (memguard.NewEnclave likely zeros original)
+	encryptedDataForStorage := make([]byte, len(encryptedData))
+	copy(encryptedDataForStorage, encryptedData)
+	debug.Print("createEmptySecretsContainer: Made copy for storage, first 32: %x\n", encryptedDataForStorage[:min(32, len(encryptedDataForStorage))])
+
+	// Store ENCRYPTED data in enclave (this will consume/zero the original)
 	v.secretsContainer = memguard.NewEnclave(encryptedData)
 
-	// Save encrypted data to storage
-	debug.Print("createEmptySecretsContainer: About to save to storage\n")
-	if err = v.saveSecretsDataWithRetry(encryptedData); err != nil {
+	// DEBUG: Check original data AFTER enclave creation
+	debug.Print("createEmptySecretsContainer: AFTER enclave - original data first 32: %x\n", encryptedData[:min(32, len(encryptedData))])
+	debug.Print("createEmptySecretsContainer: AFTER enclave - copy data first 32: %x\n", encryptedDataForStorage[:min(32, len(encryptedDataForStorage))])
+
+	// Save the COPY to storage (not the original which may be zeroed)
+	debug.Print("createEmptySecretsContainer: About to save copy to storage\n")
+	if err = v.saveSecretsDataWithRetry(encryptedDataForStorage); err != nil {
 		v.secretsContainer = nil
 		return fmt.Errorf("failed to save empty container: %w", err)
 	}

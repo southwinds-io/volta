@@ -422,7 +422,7 @@ type VaultService interface {
 
 	// === Key Management Operations ===
 
-	// RotateKey generates a new key, makes it the active key for
+	// RotateDataEncryptionKey generates a new data encryption key (DEK), makes it the active key for
 	// new encryptions, and deactivates the previously active key (marking it as inactive).
 	//
 	// The old key remains available for decrypting existing data, ensuring no data loss.
@@ -441,12 +441,12 @@ type VaultService interface {
 	//   - All key state changes are logged for audit purposes
 	//
 	// Example:
-	//   metadata, err := vault.RotateKey("scheduled monthly rotation")
+	//   metadata, err := vault.RotateDataEncryptionKey("scheduled monthly rotation")
 	//   if err != nil {
 	//       return fmt.Errorf("key rotation failed: %w", err)
 	//   }
 	//   fmt.Printf("New active key: %s\n", metadata.KeyID)
-	RotateKey(reason string) (*KeyMetadata, error)
+	RotateDataEncryptionKey(reason string) (*KeyMetadata, error)
 
 	// DestroyKey permanently removes an inactive key and its material from the vault.
 	//
@@ -1520,7 +1520,7 @@ type VaultService interface {
 	//   // Output might be: "mlock enabled, guard pages active, secure heap in use"
 	SecureMemoryProtection() string
 
-	// RotatePassphrase changes the vault's master passphrase used for key derivation.
+	// RotateKeyEncryptionKey changes the vault's master passphrase used for key derivation.
 	//
 	// This operation re-encrypts all key material with a new Key Encryption Key (KEK)
 	// derived from the new passphrase. This is a sensitive operation that affects
@@ -1540,12 +1540,12 @@ type VaultService interface {
 	//   - The operation is logged extensively for audit purposes
 	//
 	// Example:
-	//   err := vault.RotatePassphrase("new-strong-passphrase-123!", "security policy compliance")
+	//   err := vault.RotateKeyEncryptionKey("new-strong-passphrase-123!", "security policy compliance")
 	//   if err != nil {
-	//       return fmt.Errorf("passphrase rotation failed: %w", err)
+	//       return fmt.Errorf("key encryption key rotation failed: %w", err)
 	//   }
-	//   fmt.Println("Passphrase successfully rotated")
-	RotatePassphrase(newPassphrase string, reason string) error
+	//   fmt.Println("Key Encryption Key successfully rotated")
+	RotateKeyEncryptionKey(newPassphrase string, reason string) error
 
 	// GetAudit returns the audit logger instance used by this vault.
 	//

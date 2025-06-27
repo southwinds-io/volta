@@ -206,7 +206,7 @@ func TestKeyRotationCrypto(t *testing.T) {
 	}
 
 	// Rotate the key
-	if _, err = cryptoManager.RotateKey("TestKeyRotationCrypto"); err != nil {
+	if _, err = cryptoManager.RotateDataEncryptionKey("TestKeyRotationCrypto"); err != nil {
 		t.Fatalf("Failed to rotate key: %v", err)
 	}
 

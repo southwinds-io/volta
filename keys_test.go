@@ -607,7 +607,7 @@ func TestLoadKeyFromMetadata(t *testing.T) {
 	originalKeyID := v1.currentKeyID
 
 	// Save state by rotating key (which saves metadata)
-	_, err = v1.RotateKey("TestLoadKeyFromMetadata")
+	_, err = v1.RotateDataEncryptionKey("TestLoadKeyFromMetadata")
 	if err != nil {
 		t.Fatalf("Failed to rotate key: %v", err)
 	}
@@ -704,7 +704,7 @@ func TestSaveAndLoadEncryptedKeys(t *testing.T) {
 	originalKeyID := v1.currentKeyID
 
 	// Rotate key to trigger saving of metadata with encrypted keys
-	newKeyMetadata, err := v1.RotateKey("TestSaveAndLoadEncryptedKeys")
+	newKeyMetadata, err := v1.RotateDataEncryptionKey("TestSaveAndLoadEncryptedKeys")
 	if err != nil {
 		t.Fatalf("Failed to rotate key: %v", err)
 	}

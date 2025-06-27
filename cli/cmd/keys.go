@@ -116,7 +116,7 @@ func runKeyRotate(cmd *cobra.Command, args []string) (err error) {
 
 	fmt.Println("Starting key rotation...")
 
-	newKey, err := vault.RotateKey("")
+	newKey, err := vault.RotateDataEncryptionKey("")
 	if err != nil {
 		err = fmt.Errorf("failed to rotate key: %w", err)
 		return auditCmdComplete(cmd, err, started)
