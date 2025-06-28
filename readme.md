@@ -132,6 +132,11 @@ The example [here](examples/dek_rotation/main.go) demonstrates the complete life
 
 The example [here](examples/backup/main.go) demonstrates the complete backup/restore cycle of a vault with encrypted PII and secrets.
 
+#### KEK Rotation Performance Testing
+
+The example [here](examples/performance/readme.md) provides a simple performance test tool to evaluate the speed and reliability of Key Encryption Key (KEK) rotation operations across
+multiple tenants using Volta.
+
 ### Installation
 
 ```sh
